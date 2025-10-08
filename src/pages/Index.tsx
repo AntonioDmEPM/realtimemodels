@@ -283,7 +283,7 @@ export default function Index() {
 
       setStatusMessage('Establishing connection...');
 
-      const pc = await createRealtimeSession(stream, token, voice, model, botPrompt, handleMessage);
+      const pc = await createRealtimeSession(stream, token, voice, model, botPrompt, handleMessage, knowledgeBaseId || undefined);
       setPeerConnection(pc);
 
       const startTime = Date.now();

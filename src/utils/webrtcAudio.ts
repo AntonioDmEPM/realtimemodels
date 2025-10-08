@@ -62,7 +62,8 @@ export async function createRealtimeSession(
   voice: string,
   model: string,
   instructions: string,
-  onMessage: (data: any) => void
+  onMessage: (data: any) => void,
+  knowledgeBaseId?: string
 ): Promise<RTCPeerConnection> {
   const pc = new RTCPeerConnection();
 
@@ -87,7 +88,7 @@ export async function createRealtimeSession(
         sessionCreated = true;
         console.log('Session created, sending configuration update...');
         
-        const sessionUpdate = {
+        const sessionUpdate: any = {
           type: 'session.update',
           session: {
             instructions: instructions,
@@ -107,9 +108,88 @@ export async function createRealtimeSession(
             max_response_output_tokens: 'inf'
           }
         };
+
+        // Add knowledge base search tool if available
+        if (knowledgeBaseId) {
+          sessionUpdate.session.tools = [
+            {
+              type: 'function',
+              name: 'search_knowledge_base',
+              description: 'Search the knowledge base for relevant information. Use this when the user asks questions that might be answered by documents in the knowledge base.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  query: {
+                    type: 'string',
+                    description: 'The search query to find relevant information'
+                  }
+                },
+                required: ['query']
+              }
+            }
+          ];
+          sessionUpdate.session.tool_choice = 'auto';
+        }
         
         dc.send(JSON.stringify(sessionUpdate));
-        console.log('Session updated with voice:', voice, 'and instructions:', instructions);
+        console.log('Session updated with voice:', voice, 'and instructions:', instructions, 'KB:', knowledgeBaseId);
+      }
+      
+      // Handle function calls from the AI
+      if (eventData.type === 'response.function_call_arguments.done' && knowledgeBaseId) {
+        const callId = eventData.call_id;
+        const functionName = eventData.name;
+        const args = JSON.parse(eventData.arguments);
+        
+        if (functionName === 'search_knowledge_base') {
+          console.log('AI requesting knowledge base search:', args.query);
+          
+          // Call the search-knowledge function
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-knowledge`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              query: args.query,
+              knowledge_base_id: knowledgeBaseId
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            // Send the search results back to the AI
+            const functionOutput = {
+              type: 'conversation.item.create',
+              item: {
+                type: 'function_call_output',
+                call_id: callId,
+                output: JSON.stringify(data.results || [])
+              }
+            };
+            
+            dc.send(JSON.stringify(functionOutput));
+            
+            // Trigger AI to generate a response with the search results
+            dc.send(JSON.stringify({ type: 'response.create' }));
+          })
+          .catch(err => {
+            console.error('Error searching knowledge base:', err);
+            
+            // Send error back to AI
+            const functionOutput = {
+              type: 'conversation.item.create',
+              item: {
+                type: 'function_call_output',
+                call_id: callId,
+                output: JSON.stringify({ error: 'Failed to search knowledge base' })
+              }
+            };
+            
+            dc.send(JSON.stringify(functionOutput));
+            dc.send(JSON.stringify({ type: 'response.create' }));
+          });
+        }
       }
       
       onMessage(eventData);
