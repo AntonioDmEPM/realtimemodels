@@ -12,13 +12,21 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== get-realtime-token function invoked ===');
+    
     const OPENAI_API_KEY = Deno.env.get('OpenAI_API_Token');
+    console.log('OpenAI_API_Token exists:', !!OPENAI_API_KEY);
+    console.log('OpenAI_API_Token length:', OPENAI_API_KEY?.length);
+    
     if (!OPENAI_API_KEY) {
+      console.error('OpenAI_API_Token is not configured in secrets');
       throw new Error('OpenAI_API_Token is not configured');
     }
 
     const { model, voice } = await req.json();
+    console.log('Request params - model:', model, 'voice:', voice);
 
+    console.log('Calling OpenAI API...');
     const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
       headers: {
@@ -31,20 +39,33 @@ serve(async (req) => {
       }),
     });
 
+    console.log('OpenAI API response status:', response.status);
+    
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("OpenAI API error:", response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      console.error("OpenAI API error details:", {
+        status: response.status,
+        statusText: response.statusText,
+        errorText: errorText
+      });
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('OpenAI API success - session created');
     
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
+    console.error("Function error:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error("Error message:", errorMessage);
+    
+    return new Response(JSON.stringify({ 
+      error: errorMessage,
+      details: error instanceof Error ? error.stack : undefined 
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
