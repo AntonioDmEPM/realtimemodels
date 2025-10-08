@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LogOut, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
 import VoiceControls from '@/components/VoiceControls';
 import StatsDisplay from '@/components/StatsDisplay';
 import EventLog from '@/components/EventLog';
@@ -20,7 +20,7 @@ import ConversationTimer from '@/components/ConversationTimer';
 import ConversationTimeline, { TimelineSegment } from '@/components/ConversationTimeline';
 import TokenDashboard, { TokenDataPoint } from '@/components/TokenDashboard';
 import ConversationMessages from '@/components/ConversationMessages';
-import SessionManager from '@/components/SessionManager';
+import HeaderMenu from '@/components/HeaderMenu';
 import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig } from '@/utils/webrtcAudio';
 import { useToast } from '@/hooks/use-toast';
 
@@ -495,53 +495,48 @@ export default function Index() {
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <header className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <AudioIndicator isActive={isAudioActive} />
-              <ConversationTimer isActive={isConnected} startTime={sessionStartTime} />
-            </div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-4xl md:text-6xl font-bold">
-                <span className="text-primary">EPAM AI/Run™</span>.ClarityRTC
-              </h2>
-              <SessionManager
-                onLoadSession={handleLoadSession}
-                isConnected={isConnected}
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleLogout}
-                title="Logout"
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-          <div className="text-center text-sm text-muted-foreground">
-            Logged in as {user.email}
+          <div className="flex items-center justify-between">
+            <h2 className="text-4xl md:text-6xl font-bold">
+              <span className="text-primary">EPAM AI/Run™</span>.ClarityRTC
+            </h2>
+            <HeaderMenu
+              userEmail={user.email}
+              onLogout={handleLogout}
+              onLoadSession={handleLoadSession}
+              isConnected={isConnected}
+            />
           </div>
         </header>
 
         <div className="space-y-6">
           <Card className="p-6 shadow-card bg-card/50 backdrop-blur-sm border-primary/20">
-            <div className="flex items-center justify-between mb-4">
-              <Label htmlFor="mode-toggle" className="text-base font-semibold">
-                Interaction Mode
-              </Label>
-              <div className="flex items-center gap-3">
-                <span className={`text-sm ${interactionMode === 'voice' ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
-                  Voice
-                </span>
-                <Switch
-                  id="mode-toggle"
-                  checked={interactionMode === 'chat'}
-                  onCheckedChange={(checked) => setInteractionMode(checked ? 'chat' : 'voice')}
-                  disabled={isConnected}
-                />
-                <span className={`text-sm ${interactionMode === 'chat' ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
-                  Chat
-                </span>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="mode-toggle" className="text-base font-semibold">
+                  Interaction Mode
+                </Label>
+                <div className="flex items-center gap-3">
+                  <span className={`text-sm ${interactionMode === 'voice' ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                    Voice
+                  </span>
+                  <Switch
+                    id="mode-toggle"
+                    checked={interactionMode === 'chat'}
+                    onCheckedChange={(checked) => setInteractionMode(checked ? 'chat' : 'voice')}
+                    disabled={isConnected}
+                  />
+                  <span className={`text-sm ${interactionMode === 'chat' ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                    Chat
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                <div className="flex-1 min-w-0">
+                  <AudioIndicator isActive={isAudioActive} />
+                </div>
+                <div className="flex-shrink-0 ml-6">
+                  <ConversationTimer isActive={isConnected} startTime={sessionStartTime} />
+                </div>
               </div>
             </div>
           </Card>
