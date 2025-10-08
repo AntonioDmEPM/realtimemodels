@@ -119,7 +119,7 @@ serve(async (req) => {
         const embeddingData = await embeddingResponse.json();
         const embedding = embeddingData.data[0].embedding;
 
-        // Store chunk with embedding
+        // Store chunk with embedding (convert to pgvector format)
         const { error: chunkError } = await supabase
           .from('document_chunks')
           .insert({
@@ -127,7 +127,7 @@ serve(async (req) => {
             knowledge_base_id: knowledgeBaseId,
             chunk_index: i,
             content: chunk,
-            embedding: JSON.stringify(embedding),
+            embedding: `[${embedding.join(',')}]`,
             metadata: { chunk_size: chunk.length }
           });
 

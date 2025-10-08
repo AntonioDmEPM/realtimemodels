@@ -56,10 +56,10 @@ serve(async (req) => {
 
     console.log('Query embedding generated, searching for similar chunks...');
 
-    // Search for similar chunks using the database function
+    // Search for similar chunks using the database function (convert to pgvector format)
     const { data: results, error: searchError } = await supabase
       .rpc('search_similar_chunks', {
-        query_embedding: JSON.stringify(queryEmbedding),
+        query_embedding: `[${queryEmbedding.join(',')}]`,
         kb_id: knowledge_base_id,
         match_threshold: match_threshold,
         match_count: match_count
