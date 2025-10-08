@@ -89,24 +89,11 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
         }
       }
 
-      // Also capture from response.audio_transcript.done for better coverage
+      // Skip response.audio_transcript.done - we already get transcripts from response.done
+      // This prevents duplicate messages from being added
       if (eventType === 'response.audio_transcript.done') {
-        const responseId = event.data.response_id;
-        const transcript = event.data.transcript;
-        // Only process if we have both transcript and responseId, and haven't processed it yet
-        if (transcript && responseId && !processedResponseIds.has(responseId)) {
-          console.log('Found audio transcript done:', transcript);
-          const knowledge = pendingKnowledge.length > 0 ? [...pendingKnowledge] : undefined;
-          messages.push({
-            id: `msg-${messageIdCounter++}`,
-            role: 'assistant',
-            content: transcript,
-            timestamp: event.timestamp,
-            knowledge,
-          });
-          processedResponseIds.add(responseId);
-          pendingKnowledge.length = 0;
-        }
+        // Intentionally skip - response.done already contains the transcript
+        return;
       }
 
       // Capture assistant messages from response.done events (audio mode)
