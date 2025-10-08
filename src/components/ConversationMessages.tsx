@@ -111,8 +111,8 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
       // Capture assistant messages from response.done events (audio mode)
       if (eventType === 'response.done' && event.data.response?.output) {
         const responseId = event.data.response_id;
-        // Skip if we already processed this response from other events
-        if (processedResponseIds.has(responseId)) {
+        // Skip if we already processed this response from other events (only check if responseId exists)
+        if (responseId && processedResponseIds.has(responseId)) {
           return;
         }
         
@@ -133,7 +133,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                   timestamp: event.timestamp,
                   knowledge,
                 });
-                processedResponseIds.add(responseId);
+                if (responseId) processedResponseIds.add(responseId);
                 pendingKnowledge.length = 0;
               } else if (content.type === 'text' && content.text) {
                 // Also handle text type from output
@@ -145,7 +145,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                   timestamp: event.timestamp,
                   knowledge,
                 });
-                processedResponseIds.add(responseId);
+                if (responseId) processedResponseIds.add(responseId);
                 pendingKnowledge.length = 0;
               }
             }
