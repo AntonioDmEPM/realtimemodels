@@ -64,7 +64,7 @@ export async function createRealtimeSession(
   instructions: string,
   onMessage: (data: any) => void,
   knowledgeBaseId?: string
-): Promise<RTCPeerConnection> {
+): Promise<{ pc: RTCPeerConnection; dc: RTCDataChannel }> {
   const pc = new RTCPeerConnection();
 
   pc.ontrack = (e) => {
@@ -226,7 +226,7 @@ export async function createRealtimeSession(
     sdp: await resp.text(),
   });
 
-  return pc;
+  return { pc, dc };
 }
 
 export class AudioVisualizer {

@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { LogOut, Send } from 'lucide-react';
 import VoiceControls from '@/components/VoiceControls';
 import StatsDisplay from '@/components/StatsDisplay';
 import EventLog from '@/components/EventLog';
@@ -49,6 +53,7 @@ export default function Index() {
   const [events, setEvents] = useState<EventEntry[]>([]);
 
   const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
+  const [dataChannel, setDataChannel] = useState<RTCDataChannel | null>(null);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [audioVisualizer, setAudioVisualizer] = useState<AudioVisualizer | null>(null);
   const [selectedModel, setSelectedModel] = useState('gpt-4o-realtime-preview-2024-12-17');
@@ -69,6 +74,8 @@ export default function Index() {
   const [currentSegment, setCurrentSegment] = useState<Partial<TimelineSegment> | null>(null);
   const [tokenDataPoints, setTokenDataPoints] = useState<TokenDataPoint[]>([]);
   const [cumulativeTokens, setCumulativeTokens] = useState({ input: 0, output: 0 });
+  const [interactionMode, setInteractionMode] = useState<'voice' | 'chat'>('voice');
+  const [chatInput, setChatInput] = useState('');
 
   // Authentication check
   useEffect(() => {
@@ -283,8 +290,9 @@ export default function Index() {
 
       setStatusMessage('Establishing connection...');
 
-      const pc = await createRealtimeSession(stream, token, voice, model, botPrompt, handleMessage, knowledgeBaseId || undefined);
+      const { pc, dc } = await createRealtimeSession(stream, token, voice, model, botPrompt, handleMessage, knowledgeBaseId || undefined);
       setPeerConnection(pc);
+      setDataChannel(dc);
 
       const startTime = Date.now();
       sessionStartTimeRef.current = startTime;
@@ -353,6 +361,11 @@ export default function Index() {
       setPeerConnection(null);
     }
 
+    if (dataChannel) {
+      dataChannel.close();
+      setDataChannel(null);
+    }
+
     if (audioVisualizer) {
       audioVisualizer.cleanup();
       setAudioVisualizer(null);
@@ -371,6 +384,46 @@ export default function Index() {
     sessionStartTimeRef.current = null;
     setSessionStartTime(null);
     setCurrentSegment(null);
+  };
+
+  const sendChatMessage = (message: string) => {
+    if (!dataChannel || dataChannel.readyState !== 'open' || !message.trim()) {
+      toast({
+        title: 'Unable to send',
+        description: 'Connection not ready. Please wait or start a session.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    try {
+      // Send text message through data channel
+      const event = {
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: message
+            }
+          ]
+        }
+      };
+
+      dataChannel.send(JSON.stringify(event));
+      dataChannel.send(JSON.stringify({ type: 'response.create' }));
+      
+      console.log('Sent text message:', message);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: 'Send Failed',
+        description: 'Failed to send message. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const clearEvents = () => {
@@ -449,14 +502,38 @@ export default function Index() {
         </header>
 
         <div className="space-y-6">
-          <VoiceControls
-            onStart={startSession}
-            onStop={stopSession}
-            isConnected={isConnected}
-            statusMessage={statusMessage}
-            statusType={statusType}
-            onModelChange={setSelectedModel}
-          />
+          <Card className="p-6 shadow-card bg-card/50 backdrop-blur-sm border-primary/20">
+            <div className="flex items-center justify-between mb-4">
+              <Label htmlFor="mode-toggle" className="text-base font-semibold">
+                Interaction Mode
+              </Label>
+              <div className="flex items-center gap-3">
+                <span className={`text-sm ${interactionMode === 'voice' ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                  Voice
+                </span>
+                <Switch
+                  id="mode-toggle"
+                  checked={interactionMode === 'chat'}
+                  onCheckedChange={(checked) => setInteractionMode(checked ? 'chat' : 'voice')}
+                  disabled={isConnected}
+                />
+                <span className={`text-sm ${interactionMode === 'chat' ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                  Chat
+                </span>
+              </div>
+            </div>
+          </Card>
+
+          {interactionMode === 'voice' && (
+            <VoiceControls
+              onStart={startSession}
+              onStop={stopSession}
+              isConnected={isConnected}
+              statusMessage={statusMessage}
+              statusType={statusType}
+              onModelChange={setSelectedModel}
+            />
+          )}
 
           <PromptSettings onPromptChange={setBotPrompt} currentPrompt={botPrompt} />
 
@@ -494,7 +571,39 @@ export default function Index() {
 
           <ConversationTimeline segments={timelineSegments} sessionStartTime={sessionStartTime} />
 
-          <ConversationMessages events={events} />
+          <Card>
+            <ConversationMessages events={events} />
+            
+            {interactionMode === 'chat' && (
+              <div className="border-t p-4 bg-background">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (chatInput.trim() && isConnected) {
+                      sendChatMessage(chatInput);
+                      setChatInput('');
+                    }
+                  }}
+                  className="flex gap-2"
+                >
+                  <Input
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder={isConnected ? "Type your message..." : "Start a session to chat"}
+                    disabled={!isConnected}
+                    className="flex-1"
+                  />
+                  <Button 
+                    type="submit" 
+                    size="icon"
+                    disabled={!isConnected || !chatInput.trim()}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </form>
+              </div>
+            )}
+          </Card>
 
           <EventLog events={events} onClearEvents={clearEvents} />
         </div>

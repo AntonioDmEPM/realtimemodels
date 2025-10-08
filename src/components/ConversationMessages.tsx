@@ -1,6 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { User, Bot } from "lucide-react";
 
 interface EventEntry {
@@ -111,7 +111,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
   };
 
   return (
-    <Card>
+    <>
       <CardHeader>
         <CardTitle>Conversation</CardTitle>
       </CardHeader>
@@ -166,6 +166,6 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
           </ScrollArea>
         )}
       </CardContent>
-    </Card>
+    </>
   );
 }
