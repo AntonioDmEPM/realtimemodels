@@ -276,9 +276,8 @@ export default function Index() {
 
       const token = tokenData.client_secret.value;
 
-      let stream: MediaStream | null = null;
+      let stream: MediaStream;
       
-      // Only request microphone in voice mode
       if (interactionMode === 'voice') {
         setStatusMessage('Requesting microphone access...');
 
@@ -292,6 +291,14 @@ export default function Index() {
         const visualizer = new AudioVisualizer(setIsAudioActive);
         visualizer.setup(stream);
         setAudioVisualizer(visualizer);
+      } else {
+        // Create silent audio track for chat mode (WebRTC requires at least one track)
+        const audioContext = new AudioContext();
+        const oscillator = audioContext.createOscillator();
+        const destination = audioContext.createMediaStreamDestination();
+        oscillator.connect(destination);
+        oscillator.start();
+        stream = destination.stream;
       }
 
       setStatusMessage('Establishing connection...');

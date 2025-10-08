@@ -57,7 +57,7 @@ export function calculateCosts(
 }
 
 export async function createRealtimeSession(
-  inStream: MediaStream | null,
+  inStream: MediaStream,
   token: string,
   voice: string,
   model: string,
@@ -68,16 +68,17 @@ export async function createRealtimeSession(
 ): Promise<{ pc: RTCPeerConnection; dc: RTCDataChannel }> {
   const pc = new RTCPeerConnection();
 
-  // Only set up audio in voice mode
-  if (!textOnly && inStream) {
+  // Only play audio output in voice mode
+  if (!textOnly) {
     pc.ontrack = (e) => {
       const audio = new Audio();
       audio.srcObject = e.streams[0];
       audio.play();
     };
-
-    pc.addTrack(inStream.getTracks()[0]);
   }
+
+  // Always add input track (silent in chat mode)
+  pc.addTrack(inStream.getTracks()[0]);
 
   const dc = pc.createDataChannel('oai-events');
   
