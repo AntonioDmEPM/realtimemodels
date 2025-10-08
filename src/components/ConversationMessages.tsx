@@ -24,6 +24,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
   const extractMessages = (): Message[] => {
     const messages: Message[] = [];
     let messageIdCounter = 0;
+    const textDeltaMap = new Map<string, string>(); // response_id -> accumulated text
 
     console.log('Extracting messages from events:', events.length);
 
@@ -46,7 +47,31 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
         });
       }
 
-      // Capture assistant messages from response.done events
+      // Accumulate text deltas for text-mode responses
+      if (eventType === 'response.text.delta') {
+        const responseId = event.data.response_id;
+        const delta = event.data.delta;
+        const current = textDeltaMap.get(responseId) || '';
+        textDeltaMap.set(responseId, current + delta);
+      }
+
+      // Finalize text response when done
+      if (eventType === 'response.text.done') {
+        const responseId = event.data.response_id;
+        const text = event.data.text || textDeltaMap.get(responseId) || '';
+        if (text) {
+          console.log('Found complete text response:', text);
+          messages.push({
+            id: `msg-${messageIdCounter++}`,
+            role: 'assistant',
+            content: text,
+            timestamp: event.timestamp,
+          });
+          textDeltaMap.delete(responseId);
+        }
+      }
+
+      // Capture assistant messages from response.done events (audio mode)
       if (eventType === 'response.done' && event.data.response?.output) {
         const output = event.data.response.output;
         console.log('Found response.done with output:', output.length);
@@ -60,6 +85,15 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                   id: `msg-${messageIdCounter++}`,
                   role: 'assistant',
                   content: content.transcript,
+                  timestamp: event.timestamp,
+                });
+              } else if (content.type === 'text' && content.text) {
+                // Also handle text type from output
+                console.log('Found assistant text:', content.text);
+                messages.push({
+                  id: `msg-${messageIdCounter++}`,
+                  role: 'assistant',
+                  content: content.text,
                   timestamp: event.timestamp,
                 });
               }
