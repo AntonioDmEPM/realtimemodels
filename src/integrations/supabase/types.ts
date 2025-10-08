@@ -14,13 +14,311 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      document_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string | null
+          document_id: string
+          embedding: string | null
+          id: string
+          knowledge_base_id: string
+          metadata: Json | null
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          created_at?: string | null
+          document_id: string
+          embedding?: string | null
+          id?: string
+          knowledge_base_id: string
+          metadata?: Json | null
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string | null
+          document_id?: string
+          embedding?: string | null
+          id?: string
+          knowledge_base_id?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunks_knowledge_base_id_fkey"
+            columns: ["knowledge_base_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_bases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          chunk_count: number | null
+          created_at: string | null
+          error_message: string | null
+          file_size: number
+          file_type: string
+          filename: string
+          id: string
+          knowledge_base_id: string
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          chunk_count?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          file_size: number
+          file_type: string
+          filename: string
+          id?: string
+          knowledge_base_id: string
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          chunk_count?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          file_size?: number
+          file_type?: string
+          filename?: string
+          id?: string
+          knowledge_base_id?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_knowledge_base_id_fkey"
+            columns: ["knowledge_base_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_bases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_bases: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sessions: {
+        Row: {
+          bot_prompt: string
+          created_at: string
+          duration_ms: number | null
+          events: Json
+          id: string
+          knowledge_base_id: string | null
+          model: string
+          name: string
+          pricing_config: Json
+          session_end_time: number | null
+          session_start_time: number | null
+          session_stats: Json
+          timeline_segments: Json
+          token_data_points: Json
+          updated_at: string
+          user_id: string
+          voice: string
+        }
+        Insert: {
+          bot_prompt: string
+          created_at?: string
+          duration_ms?: number | null
+          events?: Json
+          id?: string
+          knowledge_base_id?: string | null
+          model: string
+          name: string
+          pricing_config: Json
+          session_end_time?: number | null
+          session_start_time?: number | null
+          session_stats: Json
+          timeline_segments?: Json
+          token_data_points?: Json
+          updated_at?: string
+          user_id: string
+          voice: string
+        }
+        Update: {
+          bot_prompt?: string
+          created_at?: string
+          duration_ms?: number | null
+          events?: Json
+          id?: string
+          knowledge_base_id?: string | null
+          model?: string
+          name?: string
+          pricing_config?: Json
+          session_end_time?: number | null
+          session_start_time?: number | null
+          session_stats?: Json
+          timeline_segments?: Json
+          token_data_points?: Json
+          updated_at?: string
+          user_id?: string
+          voice?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_knowledge_base_id_fkey"
+            columns: ["knowledge_base_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_bases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
+      }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: string
+      }
+      search_similar_chunks: {
+        Args: {
+          kb_id: string
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          document_id: string
+          id: string
+          metadata: Json
+          similarity: number
+        }[]
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
