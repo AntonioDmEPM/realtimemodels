@@ -93,7 +93,8 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
       if (eventType === 'response.audio_transcript.done') {
         const responseId = event.data.response_id;
         const transcript = event.data.transcript;
-        if (transcript && !processedResponseIds.has(responseId)) {
+        // Only process if we have both transcript and responseId, and haven't processed it yet
+        if (transcript && responseId && !processedResponseIds.has(responseId)) {
           console.log('Found audio transcript done:', transcript);
           const knowledge = pendingKnowledge.length > 0 ? [...pendingKnowledge] : undefined;
           messages.push({
