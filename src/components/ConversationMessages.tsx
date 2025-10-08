@@ -25,6 +25,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
     const messages: Message[] = [];
     let messageIdCounter = 0;
     const textDeltaMap = new Map<string, string>(); // response_id -> accumulated text
+    const processedResponseIds = new Set<string>(); // Track processed response IDs to avoid duplicates
 
     console.log('Extracting messages from events:', events.length);
 
@@ -59,7 +60,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
       if (eventType === 'response.text.done') {
         const responseId = event.data.response_id;
         const text = event.data.text || textDeltaMap.get(responseId) || '';
-        if (text) {
+        if (text && !processedResponseIds.has(responseId)) {
           console.log('Found complete text response:', text);
           messages.push({
             id: `msg-${messageIdCounter++}`,
@@ -67,12 +68,19 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
             content: text,
             timestamp: event.timestamp,
           });
+          processedResponseIds.add(responseId);
           textDeltaMap.delete(responseId);
         }
       }
 
       // Capture assistant messages from response.done events (audio mode)
       if (eventType === 'response.done' && event.data.response?.output) {
+        const responseId = event.data.response_id;
+        // Skip if we already processed this response from response.text.done
+        if (processedResponseIds.has(responseId)) {
+          return;
+        }
+        
         const output = event.data.response.output;
         console.log('Found response.done with output:', output.length);
         // Extract transcript from the output array
@@ -87,6 +95,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                   content: content.transcript,
                   timestamp: event.timestamp,
                 });
+                processedResponseIds.add(responseId);
               } else if (content.type === 'text' && content.text) {
                 // Also handle text type from output
                 console.log('Found assistant text:', content.text);
@@ -96,6 +105,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                   content: content.text,
                   timestamp: event.timestamp,
                 });
+                processedResponseIds.add(responseId);
               }
             }
           }
