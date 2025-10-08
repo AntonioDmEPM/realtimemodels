@@ -24,6 +24,7 @@ interface SavedSession {
   model: string;
   voice: string;
   bot_prompt: string;
+  knowledge_base_id?: string | null;
   pricing_config: PricingConfig;
   session_stats: SessionStats;
   timeline_segments: TimelineSegment[];

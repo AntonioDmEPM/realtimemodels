@@ -10,6 +10,7 @@ import EventLog from '@/components/EventLog';
 import AudioIndicator from '@/components/AudioIndicator';
 import PricingSettings from '@/components/PricingSettings';
 import PromptSettings from '@/components/PromptSettings';
+import { KnowledgeBaseSelector } from '@/components/KnowledgeBaseSelector';
 import ConversationTimer from '@/components/ConversationTimer';
 import ConversationTimeline, { TimelineSegment } from '@/components/ConversationTimeline';
 import TokenDashboard, { TokenDataPoint } from '@/components/TokenDashboard';
@@ -53,6 +54,7 @@ export default function Index() {
   const [selectedModel, setSelectedModel] = useState('gpt-4o-realtime-preview-2024-12-17');
   const [selectedVoice, setSelectedVoice] = useState('alloy');
   const [botPrompt, setBotPrompt] = useState('You are a helpful AI assistant. Be concise and friendly in your responses.');
+  const [knowledgeBaseId, setKnowledgeBaseId] = useState<string | undefined>(undefined);
   const [pricingConfig, setPricingConfig] = useState<PricingConfig>({
     audioInputCost: 0.00004,
     audioOutputCost: 0.00008,
@@ -321,6 +323,7 @@ export default function Index() {
         model: selectedModel,
         voice: selectedVoice,
         bot_prompt: botPrompt,
+        knowledge_base_id: knowledgeBaseId || null,
         pricing_config: pricingConfig as any,
         session_stats: sessionStats as any,
         timeline_segments: timelineSegments as any,
@@ -389,6 +392,7 @@ export default function Index() {
     setSelectedModel(session.model);
     setSelectedVoice(session.voice);
     setBotPrompt(session.bot_prompt);
+    setKnowledgeBaseId(session.knowledge_base_id);
     setPricingConfig(session.pricing_config);
     setSessionStats(session.session_stats);
     setTimelineSegments(session.timeline_segments);
@@ -455,6 +459,11 @@ export default function Index() {
           />
 
           <PromptSettings onPromptChange={setBotPrompt} currentPrompt={botPrompt} />
+
+          <KnowledgeBaseSelector 
+            value={knowledgeBaseId}
+            onChange={setKnowledgeBaseId}
+          />
 
           <PricingSettings 
             onPricingChange={setPricingConfig}
