@@ -1,7 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import pdfParse from "https://esm.sh/pdf-parse@1.1.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -70,27 +69,15 @@ serve(async (req) => {
 
     console.log('Document record created:', document.id);
 
-    // Extract text from file based on type
-    let fileContent = '';
+    // Get the text content from the uploaded file
+    // The client extracts PDF text before uploading
+    const textContent = formData.get('text_content') as string;
     
-    if (file.type === 'application/pdf') {
-      console.log('Extracting text from PDF...');
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      
-      try {
-        // Use pdf-parse to extract text directly from array buffer
-        const pdfData = await pdfParse(arrayBuffer);
-        fileContent = pdfData.text;
-        console.log(`Extracted ${fileContent.length} characters from ${pdfData.numpages} pages`);
-      } catch (pdfError) {
-        console.error('PDF parsing error:', pdfError);
-        throw new Error('Failed to extract text from PDF. Please ensure the file is a valid PDF.');
-      }
-    } else {
-      // For text files, read directly
-      fileContent = await file.text();
+    if (!textContent) {
+      throw new Error('No text content provided. PDF text extraction must be done on client side.');
     }
+    
+    let fileContent = textContent;
     
     // Remove null bytes and other problematic characters
     fileContent = fileContent.replace(/\0/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();

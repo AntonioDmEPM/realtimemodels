@@ -170,6 +170,26 @@ export const KnowledgeBaseManager = () => {
     }
   };
 
+  const extractTextFromPDF = async (file: File): Promise<string> => {
+    const pdfjsLib = await import('pdfjs-dist');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      fullText += pageText + '\n\n';
+    }
+    
+    return fullText.trim();
+  };
+
   const uploadDocument = async (file: File) => {
     if (!selectedKB) return;
 
@@ -178,9 +198,26 @@ export const KnowledgeBaseManager = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
+      // Extract text from PDF if needed
+      let textContent = '';
+      if (file.type === 'application/pdf') {
+        toast({
+          title: 'Processing PDF',
+          description: 'Extracting text from PDF...',
+        });
+        textContent = await extractTextFromPDF(file);
+        
+        if (!textContent || textContent.length < 10) {
+          throw new Error('Could not extract text from PDF. The file may be scanned or empty.');
+        }
+      } else {
+        textContent = await file.text();
+      }
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('knowledge_base_id', selectedKB.id);
+      formData.append('text_content', textContent);
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-document`,
