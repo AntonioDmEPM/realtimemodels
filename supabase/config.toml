@@ -3,6 +3,9 @@ project_id = "cqrzuisvazfqngvcwumf"
 [functions.get-realtime-token]
 verify_jwt = false
 
+[functions.chat-completion]
+verify_jwt = false
+
 [functions.upload-document]
 verify_jwt = true
 

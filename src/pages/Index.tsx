@@ -77,6 +77,7 @@ export default function Index() {
   const [cumulativeTokens, setCumulativeTokens] = useState({ input: 0, output: 0 });
   const [interactionMode, setInteractionMode] = useState<'voice' | 'chat'>('voice');
   const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
 
   // Authentication check
   useEffect(() => {
@@ -264,24 +265,42 @@ export default function Index() {
     try {
       setSelectedVoice(voice);
       setStatusType('connecting');
-      setStatusMessage('Getting session token...');
-
-      const { data: tokenData, error: tokenError } = await supabase.functions.invoke('get-realtime-token', {
-        body: { model, voice }
-      });
-
-      if (tokenError || !tokenData?.client_secret?.value) {
-        throw new Error(tokenError?.message || 'Failed to get session token');
-      }
-
-      const token = tokenData.client_secret.value;
-
-      let stream: MediaStream;
       
-      if (interactionMode === 'voice') {
+      if (interactionMode === 'chat') {
+        // Chat mode: Just initialize session state without WebRTC
+        setStatusMessage('Initializing chat session...');
+        
+        const startTime = Date.now();
+        sessionStartTimeRef.current = startTime;
+        setIsConnected(true);
+        setSessionStartTime(startTime);
+        setTokenDataPoints([]);
+        setCumulativeTokens({ input: 0, output: 0 });
+        setChatMessages([]);
+        setStatusType('success');
+        setStatusMessage('Chat session ready!');
+
+        toast({
+          title: 'Connected',
+          description: 'Chat session is active',
+        });
+      } else {
+        // Voice mode: Use Realtime API with WebRTC
+        setStatusMessage('Getting session token...');
+
+        const { data: tokenData, error: tokenError } = await supabase.functions.invoke('get-realtime-token', {
+          body: { model, voice }
+        });
+
+        if (tokenError || !tokenData?.client_secret?.value) {
+          throw new Error(tokenError?.message || 'Failed to get session token');
+        }
+
+        const token = tokenData.client_secret.value;
+
         setStatusMessage('Requesting microphone access...');
 
-        stream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
           video: false,
         });
@@ -291,44 +310,36 @@ export default function Index() {
         const visualizer = new AudioVisualizer(setIsAudioActive);
         visualizer.setup(stream);
         setAudioVisualizer(visualizer);
-      } else {
-        // Create silent audio track for chat mode (WebRTC requires at least one track)
-        const audioContext = new AudioContext();
-        const oscillator = audioContext.createOscillator();
-        const destination = audioContext.createMediaStreamDestination();
-        oscillator.connect(destination);
-        oscillator.start();
-        stream = destination.stream;
+
+        setStatusMessage('Establishing connection...');
+
+        const { pc, dc } = await createRealtimeSession(
+          stream, 
+          token, 
+          voice, 
+          model, 
+          botPrompt, 
+          handleMessage, 
+          knowledgeBaseId || undefined,
+          false
+        );
+        setPeerConnection(pc);
+        setDataChannel(dc);
+
+        const startTime = Date.now();
+        sessionStartTimeRef.current = startTime;
+        setIsConnected(true);
+        setSessionStartTime(startTime);
+        setTokenDataPoints([]);
+        setCumulativeTokens({ input: 0, output: 0 });
+        setStatusType('success');
+        setStatusMessage('Voice session established successfully!');
+
+        toast({
+          title: 'Connected',
+          description: 'Voice session is active',
+        });
       }
-
-      setStatusMessage('Establishing connection...');
-
-      const { pc, dc } = await createRealtimeSession(
-        stream, 
-        token, 
-        voice, 
-        model, 
-        botPrompt, 
-        handleMessage, 
-        knowledgeBaseId || undefined,
-        interactionMode === 'chat' // textOnly flag
-      );
-      setPeerConnection(pc);
-      setDataChannel(dc);
-
-      const startTime = Date.now();
-      sessionStartTimeRef.current = startTime;
-      setIsConnected(true);
-      setSessionStartTime(startTime);
-      setTokenDataPoints([]);
-      setCumulativeTokens({ input: 0, output: 0 });
-      setStatusType('success');
-      setStatusMessage('Session established successfully!');
-
-      toast({
-        title: 'Connected',
-        description: 'Voice session is active',
-      });
     } catch (err: any) {
       setStatusType('error');
       setStatusMessage(`Error: ${err.message}`);
@@ -406,45 +417,148 @@ export default function Index() {
     sessionStartTimeRef.current = null;
     setSessionStartTime(null);
     setCurrentSegment(null);
+    setChatMessages([]);
   };
 
-  const sendChatMessage = (message: string) => {
-    if (!dataChannel || dataChannel.readyState !== 'open' || !message.trim()) {
-      toast({
-        title: 'Unable to send',
-        description: 'Connection not ready. Please wait or start a session.',
-        variant: 'destructive',
-      });
+  const sendChatMessage = async (message: string) => {
+    if (!message.trim()) {
       return;
     }
-    
-    try {
-      // Send text message through data channel
-      const event = {
-        type: 'conversation.item.create',
-        item: {
-          type: 'message',
-          role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text: message
-            }
-          ]
-        }
-      };
 
-      dataChannel.send(JSON.stringify(event));
-      dataChannel.send(JSON.stringify({ type: 'response.create' }));
+    if (interactionMode === 'voice') {
+      // Voice mode: use existing WebRTC data channel
+      if (!dataChannel || dataChannel.readyState !== 'open') {
+        toast({
+          title: 'Unable to send',
+          description: 'Connection not ready. Please wait or start a session.',
+          variant: 'destructive',
+        });
+        return;
+      }
       
-      console.log('Sent text message:', message);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast({
-        title: 'Send Failed',
-        description: 'Failed to send message. Please try again.',
-        variant: 'destructive',
-      });
+      try {
+        const event = {
+          type: 'conversation.item.create',
+          item: {
+            type: 'message',
+            role: 'user',
+            content: [
+              {
+                type: 'input_text',
+                text: message
+              }
+            ]
+          }
+        };
+
+        dataChannel.send(JSON.stringify(event));
+        dataChannel.send(JSON.stringify({ type: 'response.create' }));
+        
+        console.log('Sent text message via WebRTC:', message);
+      } catch (error) {
+        console.error('Error sending message:', error);
+        toast({
+          title: 'Send Failed',
+          description: 'Failed to send message. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } else {
+      // Chat mode: use GPT-5 chat completions
+      if (!isConnected) {
+        toast({
+          title: 'Unable to send',
+          description: 'Please start a session first.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      try {
+        // Add user message to chat
+        const userMessage = { role: 'user' as const, content: message };
+        setChatMessages(prev => [...prev, userMessage]);
+        
+        // Add user message to events
+        addEvent({
+          type: 'conversation.item.created',
+          item: {
+            type: 'message',
+            role: 'user',
+            content: [{ type: 'text', text: message }]
+          }
+        });
+
+        // Call chat completion edge function
+        const { data, error } = await supabase.functions.invoke('chat-completion', {
+          body: {
+            messages: [
+              { role: 'system', content: botPrompt },
+              ...chatMessages,
+              userMessage
+            ],
+            model: selectedModel,
+            knowledgeBaseId: knowledgeBaseId
+          }
+        });
+
+        if (error) throw error;
+
+        const assistantMessage = data.choices[0]?.message?.content;
+        if (assistantMessage) {
+          // Add assistant message to chat
+          setChatMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
+          
+          // Add assistant message to events
+          addEvent({
+            type: 'response.done',
+            response: {
+              output: [
+                {
+                  type: 'message',
+                  role: 'assistant',
+                  content: [{ type: 'text', text: assistantMessage }]
+                }
+              ],
+              usage: data.usage
+            }
+          });
+
+          // Update stats if usage data is available
+          if (data.usage) {
+            const usage = data.usage;
+            const newStats = {
+              audioInputTokens: 0,
+              textInputTokens: usage.prompt_tokens || 0,
+              cachedInputTokens: 0,
+              audioOutputTokens: 0,
+              textOutputTokens: usage.completion_tokens || 0,
+            };
+
+            const costs = calculateCosts(newStats, pricingConfig);
+            const fullStats = { ...newStats, ...costs };
+
+            setCurrentStats(fullStats);
+            setSessionStats(prev => ({
+              audioInputTokens: prev.audioInputTokens,
+              textInputTokens: prev.textInputTokens + newStats.textInputTokens,
+              cachedInputTokens: prev.cachedInputTokens,
+              audioOutputTokens: prev.audioOutputTokens,
+              textOutputTokens: prev.textOutputTokens + newStats.textOutputTokens,
+              inputCost: prev.inputCost + costs.inputCost,
+              outputCost: prev.outputCost + costs.outputCost,
+              totalCost: prev.totalCost + costs.totalCost,
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error sending chat message:', error);
+        toast({
+          title: 'Send Failed',
+          description: error instanceof Error ? error.message : 'Failed to send message. Please try again.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -510,85 +624,26 @@ export default function Index() {
 
         <div className="space-y-6">
           <Card className="p-6 shadow-card bg-card/50 backdrop-blur-sm border-primary/20">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="mode-toggle" className="text-base font-semibold">
-                  Interaction Mode
-                </Label>
-                <div className="flex items-center gap-3">
-                  <span className={`text-sm ${interactionMode === 'voice' ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
-                    Voice
-                  </span>
-                  <Switch
-                    id="mode-toggle"
-                    checked={interactionMode === 'chat'}
-                    onCheckedChange={(checked) => setInteractionMode(checked ? 'chat' : 'voice')}
-                    disabled={isConnected}
-                  />
-                  <span className={`text-sm ${interactionMode === 'chat' ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
-                    Chat
-                  </span>
-                </div>
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex-1 min-w-0">
+                <AudioIndicator isActive={isAudioActive} />
               </div>
-              <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                <div className="flex-1 min-w-0">
-                  <AudioIndicator isActive={isAudioActive} />
-                </div>
-                <div className="flex-shrink-0 ml-6">
-                  <ConversationTimer isActive={isConnected} startTime={sessionStartTime} />
-                </div>
+              <div className="flex-shrink-0 ml-6">
+                <ConversationTimer isActive={isConnected} startTime={sessionStartTime} />
               </div>
             </div>
           </Card>
 
-          {interactionMode === 'voice' ? (
-            <VoiceControls
-              onStart={startSession}
-              onStop={stopSession}
-              isConnected={isConnected}
-              statusMessage={statusMessage}
-              statusType={statusType}
-              onModelChange={setSelectedModel}
-            />
-          ) : (
-            <Card className="p-6 shadow-card bg-card/50 backdrop-blur-sm border-primary/20">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="chat-model">Model</Label>
-                  <Select value={selectedModel} onValueChange={setSelectedModel} disabled={isConnected}>
-                    <SelectTrigger id="chat-model" className="bg-background/50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gpt-4o-realtime-preview-2024-12-17">GPT-4o Realtime (2024-12-17)</SelectItem>
-                      <SelectItem value="gpt-4o-mini-realtime-preview-2024-12-17">GPT-4o Mini Realtime (2024-12-17)</SelectItem>
-                      <SelectItem value="gpt-realtime">GPT Realtime</SelectItem>
-                      <SelectItem value="gpt-realtime-mini">GPT Realtime Mini</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button
-                  onClick={isConnected ? stopSession : () => startSession('alloy', selectedModel)}
-                  className="w-full bg-primary hover:bg-primary/90"
-                  variant={isConnected ? 'destructive' : 'default'}
-                >
-                  {isConnected ? 'Stop Session' : 'Start Chat Session'}
-                </Button>
-
-                {statusMessage && (
-                  <p className={`text-sm font-medium transition-smooth ${
-                    statusType === 'success' ? 'text-accent' :
-                    statusType === 'error' ? 'text-destructive' :
-                    statusType === 'connecting' ? 'text-primary' :
-                    'text-muted-foreground'
-                  }`}>
-                    {statusMessage}
-                  </p>
-                )}
-              </div>
-            </Card>
-          )}
+          <VoiceControls
+            onStart={startSession}
+            onStop={stopSession}
+            isConnected={isConnected}
+            statusMessage={statusMessage}
+            statusType={statusType}
+            onModelChange={setSelectedModel}
+            onModeChange={setInteractionMode}
+            mode={interactionMode}
+          />
 
           <PromptSettings onPromptChange={setBotPrompt} currentPrompt={botPrompt} />
 

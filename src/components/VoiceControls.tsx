@@ -12,6 +12,8 @@ interface VoiceControlsProps {
   statusMessage: string;
   statusType: 'idle' | 'success' | 'error' | 'connecting';
   onModelChange?: (model: string) => void;
+  onModeChange?: (mode: 'voice' | 'chat') => void;
+  mode: 'voice' | 'chat';
 }
 
 const REALTIME_MODELS = [
@@ -19,6 +21,12 @@ const REALTIME_MODELS = [
   { id: 'gpt-4o-mini-realtime-preview-2024-12-17', name: 'GPT-4o Mini Realtime (2024-12-17)' },
   { id: 'gpt-realtime', name: 'GPT Realtime' },
   { id: 'gpt-realtime-mini', name: 'GPT Realtime Mini' },
+];
+
+const CHAT_MODELS = [
+  { id: 'gpt-5', name: 'GPT-5' },
+  { id: 'gpt-5-mini', name: 'GPT-5 Mini' },
+  { id: 'gpt-5-nano', name: 'GPT-5 Nano' },
 ];
 
 const VOICES = [
@@ -36,22 +44,45 @@ export default function VoiceControls({
   statusMessage,
   statusType,
   onModelChange,
+  onModeChange,
+  mode,
 }: VoiceControlsProps) {
   const [voice, setVoice] = useState('ash');
   const [model, setModel] = useState('gpt-4o-realtime-preview-2024-12-17');
 
   useEffect(() => {
     const savedModel = localStorage.getItem('selected_model');
-    if (savedModel && REALTIME_MODELS.find(m => m.id === savedModel)) {
+    const savedMode = localStorage.getItem('interaction_mode') as 'voice' | 'chat' | null;
+    
+    if (savedMode && onModeChange) {
+      onModeChange(savedMode);
+    }
+    
+    const models = mode === 'voice' ? REALTIME_MODELS : CHAT_MODELS;
+    if (savedModel && models.find(m => m.id === savedModel)) {
       setModel(savedModel);
       onModelChange?.(savedModel);
+    } else {
+      // Set default model based on mode
+      const defaultModel = mode === 'voice' ? 'gpt-4o-realtime-preview-2024-12-17' : 'gpt-5-mini';
+      setModel(defaultModel);
+      onModelChange?.(defaultModel);
     }
-  }, []);
+  }, [mode]);
 
   const handleModelChange = (newModel: string) => {
     setModel(newModel);
     localStorage.setItem('selected_model', newModel);
     onModelChange?.(newModel);
+  };
+
+  const handleModeChange = (newMode: 'voice' | 'chat') => {
+    localStorage.setItem('interaction_mode', newMode);
+    onModeChange?.(newMode);
+    
+    // Set appropriate default model for the mode
+    const defaultModel = newMode === 'voice' ? 'gpt-4o-realtime-preview-2024-12-17' : 'gpt-5-mini';
+    handleModelChange(defaultModel);
   };
 
   const handleStart = () => {
@@ -71,9 +102,24 @@ export default function VoiceControls({
     }
   };
 
+  const currentModels = mode === 'voice' ? REALTIME_MODELS : CHAT_MODELS;
+
   return (
     <Card className="p-6 shadow-card bg-card/50 backdrop-blur-sm border-primary/20">
       <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="mode">Interaction Mode</Label>
+          <Select value={mode} onValueChange={handleModeChange} disabled={isConnected}>
+            <SelectTrigger id="mode" className="bg-background/50">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="voice">Voice (Realtime API)</SelectItem>
+              <SelectItem value="chat">Chat (GPT-5 Models)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="model">Model</Label>
           <Select value={model} onValueChange={handleModelChange} disabled={isConnected}>
@@ -81,7 +127,7 @@ export default function VoiceControls({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {REALTIME_MODELS.map((m) => (
+              {currentModels.map((m) => (
                 <SelectItem key={m.id} value={m.id}>
                   {m.name}
                 </SelectItem>
@@ -90,21 +136,23 @@ export default function VoiceControls({
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="voice">Voice</Label>
-          <Select value={voice} onValueChange={setVoice} disabled={isConnected}>
-            <SelectTrigger id="voice" className="bg-background/50">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {VOICES.map((v) => (
-                <SelectItem key={v.value} value={v.value}>
-                  {v.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {mode === 'voice' && (
+          <div className="space-y-2">
+            <Label htmlFor="voice">Voice</Label>
+            <Select value={voice} onValueChange={setVoice} disabled={isConnected}>
+              <SelectTrigger id="voice" className="bg-background/50">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VOICES.map((v) => (
+                  <SelectItem key={v.value} value={v.value}>
+                    {v.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <Button
           onClick={isConnected ? onStop : handleStart}
