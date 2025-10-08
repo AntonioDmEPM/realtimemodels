@@ -117,6 +117,9 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
           return;
         }
         
+        // Mark as processed immediately to prevent audio_transcript.done from duplicating
+        if (responseId) processedResponseIds.add(responseId);
+        
         const output = event.data.response.output;
         console.log('Found response.done with output:', output.length);
         const knowledge = pendingKnowledge.length > 0 ? [...pendingKnowledge] : undefined;
@@ -134,7 +137,6 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                   timestamp: event.timestamp,
                   knowledge,
                 });
-                if (responseId) processedResponseIds.add(responseId);
                 pendingKnowledge.length = 0;
               } else if (content.type === 'text' && content.text) {
                 // Also handle text type from output
@@ -146,7 +148,6 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                   timestamp: event.timestamp,
                   knowledge,
                 });
-                if (responseId) processedResponseIds.add(responseId);
                 pendingKnowledge.length = 0;
               }
             }
