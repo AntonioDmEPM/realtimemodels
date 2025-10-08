@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LogOut, Send } from 'lucide-react';
 import VoiceControls from '@/components/VoiceControls';
 import StatsDisplay from '@/components/StatsDisplay';
@@ -524,7 +525,7 @@ export default function Index() {
             </div>
           </Card>
 
-          {interactionMode === 'voice' && (
+          {interactionMode === 'voice' ? (
             <VoiceControls
               onStart={startSession}
               onStop={stopSession}
@@ -533,6 +534,44 @@ export default function Index() {
               statusType={statusType}
               onModelChange={setSelectedModel}
             />
+          ) : (
+            <Card className="p-6 shadow-card bg-card/50 backdrop-blur-sm border-primary/20">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="chat-model">Model</Label>
+                  <Select value={selectedModel} onValueChange={setSelectedModel} disabled={isConnected}>
+                    <SelectTrigger id="chat-model" className="bg-background/50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gpt-4o-realtime-preview-2024-12-17">GPT-4o Realtime (2024-12-17)</SelectItem>
+                      <SelectItem value="gpt-4o-mini-realtime-preview-2024-12-17">GPT-4o Mini Realtime (2024-12-17)</SelectItem>
+                      <SelectItem value="gpt-realtime">GPT Realtime</SelectItem>
+                      <SelectItem value="gpt-realtime-mini">GPT Realtime Mini</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button
+                  onClick={isConnected ? stopSession : () => startSession('alloy', selectedModel)}
+                  className="w-full bg-primary hover:bg-primary/90"
+                  variant={isConnected ? 'destructive' : 'default'}
+                >
+                  {isConnected ? 'Stop Session' : 'Start Chat Session'}
+                </Button>
+
+                {statusMessage && (
+                  <p className={`text-sm font-medium transition-smooth ${
+                    statusType === 'success' ? 'text-accent' :
+                    statusType === 'error' ? 'text-destructive' :
+                    statusType === 'connecting' ? 'text-primary' :
+                    'text-muted-foreground'
+                  }`}>
+                    {statusMessage}
+                  </p>
+                )}
+              </div>
+            </Card>
           )}
 
           <PromptSettings onPromptChange={setBotPrompt} currentPrompt={botPrompt} />
