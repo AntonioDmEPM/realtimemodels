@@ -562,18 +562,17 @@ export default function Index() {
     }
   };
 
-  const clearEvents = () => {
-    setEvents([]);
-  };
-
-  const resetSessionTotals = () => {
+  const resetAll = () => {
     setSessionStats(initialStats);
+    setCurrentStats(initialStats);
     setTimelineSegments([]);
     setTokenDataPoints([]);
     setCumulativeTokens({ input: 0, output: 0 });
+    setEvents([]);
+    setChatMessages([]);
     toast({
-      title: 'Session Totals Reset',
-      description: 'All session statistics have been cleared',
+      title: 'Reset Complete',
+      description: 'All session data has been cleared',
     });
   };
 
@@ -631,6 +630,17 @@ export default function Index() {
               <div className="flex-shrink-0 ml-6">
                 <ConversationTimer isActive={isConnected} startTime={sessionStartTime} />
               </div>
+              {!isConnected && (sessionStats.totalCost > 0 || events.length > 0) && (
+                <div className="flex-shrink-0 ml-6">
+                  <Button 
+                    onClick={resetAll} 
+                    variant="outline"
+                    size="sm"
+                  >
+                    Reset All
+                  </Button>
+                </div>
+              )}
             </div>
           </Card>
 
@@ -662,8 +672,6 @@ export default function Index() {
             <StatsDisplay 
               title="Session Total" 
               stats={sessionStats}
-              onReset={resetSessionTotals}
-              resetDisabled={isConnected}
             />
           </div>
 
@@ -715,7 +723,7 @@ export default function Index() {
             )}
           </Card>
 
-          <EventLog events={events} onClearEvents={clearEvents} />
+          <EventLog events={events} />
         </div>
       </div>
     </div>

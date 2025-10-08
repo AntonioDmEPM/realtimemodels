@@ -1,32 +1,16 @@
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { RotateCcw } from 'lucide-react';
 import { SessionStats } from '@/utils/webrtcAudio';
 
 interface StatsDisplayProps {
   title: string;
   stats: SessionStats;
-  onReset?: () => void;
-  resetDisabled?: boolean;
 }
 
-export default function StatsDisplay({ title, stats, onReset, resetDisabled }: StatsDisplayProps) {
+export default function StatsDisplay({ title, stats }: StatsDisplayProps) {
   return (
     <Card className="p-6 shadow-card bg-card/50 backdrop-blur-sm border-primary/20">
       <div className="flex items-center justify-between mb-6 pb-3 border-b">
         <h2 className="text-xl font-semibold">{title}</h2>
-        {onReset && (
-          <Button
-            onClick={onReset}
-            disabled={resetDisabled}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Reset
-          </Button>
-        )}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="space-y-3 p-4 bg-secondary rounded-lg">
