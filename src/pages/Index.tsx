@@ -485,7 +485,7 @@ export default function Index() {
           item: {
             type: 'message',
             role: 'user',
-            content: [{ type: 'text', text: message }]
+            content: [{ type: 'input_text', text: message }]
           }
         });
 
