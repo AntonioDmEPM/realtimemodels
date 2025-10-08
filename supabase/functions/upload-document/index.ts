@@ -86,8 +86,8 @@ serve(async (req) => {
       throw new Error('No readable text content found in document');
     }
     
-    // Chunk the content with smaller size to fit embedding model limits (~500 chars = ~125 tokens)
-    const chunks = chunkText(fileContent, 500);
+    // Chunk the content to fit embedding model limits (aim for ~1500 chars = ~375 tokens, well under 8192 limit)
+    const chunks = chunkText(fileContent, 1500);
     console.log(`Created ${chunks.length} chunks from document`);
 
     // Generate embeddings and store chunks
@@ -184,7 +184,30 @@ function chunkText(text: string, maxChunkSize: number): string[] {
   let currentChunk = '';
   
   for (const paragraph of paragraphs) {
-    if (currentChunk.length + paragraph.length > maxChunkSize && currentChunk.length > 0) {
+    // If a single paragraph is too long, split it by sentences
+    if (paragraph.length > maxChunkSize) {
+      // Save current chunk if it exists
+      if (currentChunk.length > 0) {
+        chunks.push(currentChunk.trim());
+        currentChunk = '';
+      }
+      
+      // Split long paragraph by sentences
+      const sentences = paragraph.split(/[.!?]+\s+/);
+      for (const sentence of sentences) {
+        if (sentence.length > maxChunkSize) {
+          // If even a sentence is too long, split by character limit
+          for (let i = 0; i < sentence.length; i += maxChunkSize) {
+            chunks.push(sentence.slice(i, i + maxChunkSize).trim());
+          }
+        } else if (currentChunk.length + sentence.length > maxChunkSize && currentChunk.length > 0) {
+          chunks.push(currentChunk.trim());
+          currentChunk = sentence;
+        } else {
+          currentChunk += (currentChunk ? '. ' : '') + sentence;
+        }
+      }
+    } else if (currentChunk.length + paragraph.length > maxChunkSize && currentChunk.length > 0) {
       chunks.push(currentChunk.trim());
       currentChunk = paragraph;
     } else {
@@ -192,7 +215,7 @@ function chunkText(text: string, maxChunkSize: number): string[] {
     }
   }
   
-  if (currentChunk) {
+  if (currentChunk && currentChunk.trim().length > 0) {
     chunks.push(currentChunk.trim());
   }
   
