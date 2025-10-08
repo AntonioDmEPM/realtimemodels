@@ -276,22 +276,36 @@ export default function Index() {
 
       const token = tokenData.client_secret.value;
 
-      setStatusMessage('Requesting microphone access...');
+      let stream: MediaStream | null = null;
+      
+      // Only request microphone in voice mode
+      if (interactionMode === 'voice') {
+        setStatusMessage('Requesting microphone access...');
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: false,
-      });
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: false,
+        });
 
-      setAudioStream(stream);
+        setAudioStream(stream);
 
-      const visualizer = new AudioVisualizer(setIsAudioActive);
-      visualizer.setup(stream);
-      setAudioVisualizer(visualizer);
+        const visualizer = new AudioVisualizer(setIsAudioActive);
+        visualizer.setup(stream);
+        setAudioVisualizer(visualizer);
+      }
 
       setStatusMessage('Establishing connection...');
 
-      const { pc, dc } = await createRealtimeSession(stream, token, voice, model, botPrompt, handleMessage, knowledgeBaseId || undefined);
+      const { pc, dc } = await createRealtimeSession(
+        stream, 
+        token, 
+        voice, 
+        model, 
+        botPrompt, 
+        handleMessage, 
+        knowledgeBaseId || undefined,
+        interactionMode === 'chat' // textOnly flag
+      );
       setPeerConnection(pc);
       setDataChannel(dc);
 

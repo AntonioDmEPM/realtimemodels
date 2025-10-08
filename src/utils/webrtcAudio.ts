@@ -57,23 +57,27 @@ export function calculateCosts(
 }
 
 export async function createRealtimeSession(
-  inStream: MediaStream,
+  inStream: MediaStream | null,
   token: string,
   voice: string,
   model: string,
   instructions: string,
   onMessage: (data: any) => void,
-  knowledgeBaseId?: string
+  knowledgeBaseId?: string,
+  textOnly: boolean = false
 ): Promise<{ pc: RTCPeerConnection; dc: RTCDataChannel }> {
   const pc = new RTCPeerConnection();
 
-  pc.ontrack = (e) => {
-    const audio = new Audio();
-    audio.srcObject = e.streams[0];
-    audio.play();
-  };
+  // Only set up audio in voice mode
+  if (!textOnly && inStream) {
+    pc.ontrack = (e) => {
+      const audio = new Audio();
+      audio.srcObject = e.streams[0];
+      audio.play();
+    };
 
-  pc.addTrack(inStream.getTracks()[0]);
+    pc.addTrack(inStream.getTracks()[0]);
+  }
 
   const dc = pc.createDataChannel('oai-events');
   
@@ -93,12 +97,13 @@ export async function createRealtimeSession(
           session: {
             instructions: instructions,
             voice: voice,
+            modalities: textOnly ? ['text'] : ['audio', 'text'],
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
-            input_audio_transcription: {
+            input_audio_transcription: textOnly ? null : {
               model: 'whisper-1'
             },
-            turn_detection: {
+            turn_detection: textOnly ? null : {
               type: 'server_vad',
               threshold: 0.5,
               prefix_padding_ms: 300,
