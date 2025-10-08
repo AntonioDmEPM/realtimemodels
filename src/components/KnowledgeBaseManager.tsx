@@ -172,10 +172,15 @@ export const KnowledgeBaseManager = () => {
 
   const extractTextFromPDF = async (file: File): Promise<string> => {
     const pdfjsLib = await import('pdfjs-dist');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    
+    // Use the worker from the npm package
+    const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.mjs?url');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker.default;
 
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    console.log(`PDF loaded: ${pdf.numPages} pages`);
     
     let fullText = '';
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -187,6 +192,7 @@ export const KnowledgeBaseManager = () => {
       fullText += pageText + '\n\n';
     }
     
+    console.log(`Extracted ${fullText.length} characters from PDF`);
     return fullText.trim();
   };
 
