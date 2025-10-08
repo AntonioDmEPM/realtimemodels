@@ -194,15 +194,29 @@ export const KnowledgeBaseManager = () => {
       );
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(errorData.error || 'Upload failed');
       }
 
       const result = await response.json();
       
-      toast({
-        title: 'Success',
-        description: `Document uploaded and processed: ${result.chunks_processed} chunks created`,
-      });
+      if (result.chunks_processed === 0) {
+        toast({
+          title: 'Warning',
+          description: 'Document uploaded but no chunks were processed. Check file format.',
+          variant: 'destructive',
+        });
+      } else if (result.chunks_processed < result.total_chunks) {
+        toast({
+          title: 'Partial Success',
+          description: `Document uploaded with ${result.chunks_processed}/${result.total_chunks} chunks processed`,
+        });
+      } else {
+        toast({
+          title: 'Success',
+          description: `Document processed successfully: ${result.chunks_processed} chunks created`,
+        });
+      }
 
       setIsUploadDialogOpen(false);
       await loadDocuments(selectedKB.id);
@@ -210,7 +224,7 @@ export const KnowledgeBaseManager = () => {
       console.error('Error uploading document:', error);
       toast({
         title: 'Error',
-        description: 'Failed to upload document',
+        description: error instanceof Error ? error.message : 'Failed to upload document',
         variant: 'destructive',
       });
     } finally {
@@ -366,14 +380,20 @@ export const KnowledgeBaseManager = () => {
                   >
                     <div className="flex items-center gap-3">
                       <FileText className="h-5 w-5" />
-                      <div>
+                      <div className="flex-1">
                         <div className="font-medium">{doc.filename}</div>
                         <div className="text-sm text-muted-foreground">
                           {doc.chunk_count} chunks • {new Date(doc.created_at).toLocaleDateString()}
                         </div>
                       </div>
                     </div>
-                    <Badge variant={doc.status === 'completed' ? 'default' : 'secondary'}>
+                    <Badge 
+                      variant={
+                        doc.status === 'completed' ? 'default' : 
+                        doc.status === 'partial' ? 'secondary' : 
+                        'destructive'
+                      }
+                    >
                       {doc.status}
                     </Badge>
                   </div>

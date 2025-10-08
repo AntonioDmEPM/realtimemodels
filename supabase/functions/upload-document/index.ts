@@ -69,11 +69,14 @@ serve(async (req) => {
 
     console.log('Document record created:', document.id);
 
-    // Read file content
-    const fileContent = await file.text();
+    // Read file content and clean it
+    let fileContent = await file.text();
     
-    // Chunk the content (simple chunking by paragraphs/lines)
-    const chunks = chunkText(fileContent, 1000); // ~1000 chars per chunk
+    // Remove null bytes and other problematic characters
+    fileContent = fileContent.replace(/\0/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    
+    // Chunk the content with smaller size to fit embedding model limits (~500 chars = ~125 tokens)
+    const chunks = chunkText(fileContent, 500);
     console.log(`Created ${chunks.length} chunks from document`);
 
     // Generate embeddings and store chunks
