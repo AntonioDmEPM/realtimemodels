@@ -2,6 +2,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { User, Bot } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface EventEntry {
   timestamp: string;
@@ -17,6 +18,10 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  knowledge?: Array<{
+    content: string;
+    metadata?: any;
+  }>;
 }
 
 export default function ConversationMessages({ events }: ConversationMessagesProps) {
@@ -26,6 +31,8 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
     let messageIdCounter = 0;
     const textDeltaMap = new Map<string, string>(); // response_id -> accumulated text
     const processedResponseIds = new Set<string>(); // Track processed response IDs to avoid duplicates
+    const knowledgeResultsMap = new Map<string, any[]>(); // call_id -> knowledge results
+    const pendingKnowledge: any[] = []; // Store knowledge results until next assistant message
 
     console.log('Extracting messages from events:', events.length);
 
@@ -35,6 +42,12 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
       // Log first few events for debugging
       if (index < 5) {
         console.log('Event type:', eventType, 'Data:', event.data);
+      }
+
+      // Capture knowledge base search results
+      if (eventType === 'knowledge_base.search_results') {
+        console.log('Found knowledge results:', event.data.results?.length || 0);
+        pendingKnowledge.push(...(event.data.results || []));
       }
 
       // Capture user input transcriptions from completed events
@@ -62,27 +75,51 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
         const text = event.data.text || textDeltaMap.get(responseId) || '';
         if (text && !processedResponseIds.has(responseId)) {
           console.log('Found complete text response:', text);
+          const knowledge = pendingKnowledge.length > 0 ? [...pendingKnowledge] : undefined;
           messages.push({
             id: `msg-${messageIdCounter++}`,
             role: 'assistant',
             content: text,
             timestamp: event.timestamp,
+            knowledge,
           });
           processedResponseIds.add(responseId);
           textDeltaMap.delete(responseId);
+          pendingKnowledge.length = 0; // Clear pending knowledge after use
+        }
+      }
+
+      // Also capture from response.audio_transcript.done for better coverage
+      if (eventType === 'response.audio_transcript.done') {
+        const responseId = event.data.response_id;
+        const transcript = event.data.transcript;
+        if (transcript && !processedResponseIds.has(responseId)) {
+          console.log('Found audio transcript done:', transcript);
+          const knowledge = pendingKnowledge.length > 0 ? [...pendingKnowledge] : undefined;
+          messages.push({
+            id: `msg-${messageIdCounter++}`,
+            role: 'assistant',
+            content: transcript,
+            timestamp: event.timestamp,
+            knowledge,
+          });
+          processedResponseIds.add(responseId);
+          pendingKnowledge.length = 0;
         }
       }
 
       // Capture assistant messages from response.done events (audio mode)
       if (eventType === 'response.done' && event.data.response?.output) {
         const responseId = event.data.response_id;
-        // Skip if we already processed this response from response.text.done
+        // Skip if we already processed this response from other events
         if (processedResponseIds.has(responseId)) {
           return;
         }
         
         const output = event.data.response.output;
         console.log('Found response.done with output:', output.length);
+        const knowledge = pendingKnowledge.length > 0 ? [...pendingKnowledge] : undefined;
+        
         // Extract transcript from the output array
         for (const item of output) {
           if (item.role === 'assistant' && item.content) {
@@ -94,8 +131,10 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                   role: 'assistant',
                   content: content.transcript,
                   timestamp: event.timestamp,
+                  knowledge,
                 });
                 processedResponseIds.add(responseId);
+                pendingKnowledge.length = 0;
               } else if (content.type === 'text' && content.text) {
                 // Also handle text type from output
                 console.log('Found assistant text:', content.text);
@@ -104,8 +143,10 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                   role: 'assistant',
                   content: content.text,
                   timestamp: event.timestamp,
+                  knowledge,
                 });
                 processedResponseIds.add(responseId);
+                pendingKnowledge.length = 0;
               }
             }
           }
@@ -139,8 +180,13 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
     });
 
     console.log('Extracted messages:', messages.length);
-    // Reverse to show oldest first (events are stored newest first)
-    return messages.reverse();
+    
+    // Sort by timestamp (precise to milliseconds) to ensure correct ordering
+    return messages.sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      return timeA - timeB; // Oldest first
+    });
   };
 
   const messages = extractMessages();
@@ -150,6 +196,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
     return date.toLocaleTimeString('en-US', { 
       hour: '2-digit', 
       minute: '2-digit',
+      second: '2-digit',
       hour12: true 
     });
   };
@@ -166,47 +213,77 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
           </div>
         ) : (
           <ScrollArea className="h-[500px] pr-4">
-            <div className="space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex gap-3 ${
-                    message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-                  }`}
-                >
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback className={message.role === 'user' ? 'bg-primary' : 'bg-secondary'}>
-                      {message.role === 'user' ? (
-                        <User className="h-4 w-4" />
-                      ) : (
-                        <Bot className="h-4 w-4" />
-                      )}
-                    </AvatarFallback>
-                  </Avatar>
-                  
+            <TooltipProvider>
+              <div className="space-y-4">
+                {messages.map((message) => (
                   <div
-                    className={`flex flex-col gap-1 max-w-[70%] ${
-                      message.role === 'user' ? 'items-end' : 'items-start'
+                    key={message.id}
+                    className={`flex gap-3 ${
+                      message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
                     }`}
                   >
+                    <Avatar className="h-8 w-8 shrink-0">
+                      <AvatarFallback className={message.role === 'user' ? 'bg-primary' : 'bg-secondary'}>
+                        {message.role === 'user' ? (
+                          <User className="h-4 w-4" />
+                        ) : (
+                          <Bot className="h-4 w-4" />
+                        )}
+                      </AvatarFallback>
+                    </Avatar>
+                    
                     <div
-                      className={`rounded-2xl px-4 py-2 ${
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                          : 'bg-muted text-foreground rounded-tl-sm'
+                      className={`flex flex-col gap-1 max-w-[70%] ${
+                        message.role === 'user' ? 'items-end' : 'items-start'
                       }`}
                     >
-                      <p className="text-sm whitespace-pre-wrap break-words">
-                        {message.content}
-                      </p>
+                      {message.knowledge && message.knowledge.length > 0 ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              className={`rounded-2xl px-4 py-2 cursor-help ${
+                                message.role === 'user'
+                                  ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                                  : 'bg-muted text-foreground rounded-tl-sm'
+                              }`}
+                            >
+                              <p className="text-sm whitespace-pre-wrap break-words">
+                                {message.content}
+                              </p>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-md max-h-96 overflow-y-auto">
+                            <div className="space-y-2">
+                              <p className="font-semibold text-sm">Retrieved Knowledge:</p>
+                              {message.knowledge.map((item, idx) => (
+                                <div key={idx} className="border-l-2 border-primary pl-2 py-1">
+                                  <p className="text-xs whitespace-pre-wrap">{item.content}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <div
+                          className={`rounded-2xl px-4 py-2 ${
+                            message.role === 'user'
+                              ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                              : 'bg-muted text-foreground rounded-tl-sm'
+                          }`}
+                        >
+                          <p className="text-sm whitespace-pre-wrap break-words">
+                            {message.content}
+                          </p>
+                        </div>
+                      )}
+                      <span className="text-xs text-muted-foreground px-2">
+                        {formatTime(message.timestamp)}
+                      </span>
                     </div>
-                    <span className="text-xs text-muted-foreground px-2">
-                      {formatTime(message.timestamp)}
-                    </span>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </TooltipProvider>
           </ScrollArea>
         )}
       </CardContent>

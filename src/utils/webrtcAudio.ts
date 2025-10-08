@@ -164,6 +164,17 @@ export async function createRealtimeSession(
           })
           .then(res => res.json())
           .then(data => {
+            console.log('Knowledge base search results:', data.results);
+            
+            // Store the knowledge results in an event for display
+            onMessage({
+              type: 'knowledge_base.search_results',
+              call_id: callId,
+              query: args.query,
+              results: data.results || [],
+              timestamp: new Date().toISOString()
+            });
+            
             // Send the search results back to the AI
             const functionOutput = {
               type: 'conversation.item.create',
