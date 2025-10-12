@@ -609,7 +609,7 @@ export default function Index() {
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <header className="mb-8">
           <div className="flex items-center justify-between">
-            <h2 className="text-4xl md:text-6xl font-bold uppercase">
+            <h2 className="text-4xl md:text-6xl font-bold">
               <span className="text-primary">EPAM AI/Run™</span>.Transform
             </h2>
             <HeaderMenu
