@@ -15,14 +15,30 @@ serve(async (req) => {
   try {
     console.log('=== search-knowledge function invoked ===');
     
+    // Authenticate user
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Missing authorization header');
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('Authentication failed:', userError);
+      throw new Error('Unauthorized');
+    }
+
+    console.log('User authenticated:', user.id);
+    
     const OPENAI_API_KEY = Deno.env.get('OpenAI_API_Token');
     if (!OPENAI_API_KEY) {
       throw new Error('OpenAI_API_Token is not configured');
     }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { query, knowledge_base_id, match_threshold = 0.7, match_count = 5 } = await req.json();
 
@@ -48,6 +64,19 @@ serve(async (req) => {
     // Validate numeric parameters
     const validatedThreshold = Math.max(0, Math.min(1, Number(match_threshold) || 0.7));
     const validatedCount = Math.max(1, Math.min(50, Number(match_count) || 5));
+
+    // Validate knowledge base ownership
+    const { data: kb, error: kbError } = await supabase
+      .from('knowledge_bases')
+      .select('id')
+      .eq('id', knowledge_base_id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (kbError || !kb) {
+      console.error('Knowledge base not found or unauthorized:', kbError);
+      throw new Error('Knowledge base not found or unauthorized');
+    }
 
     console.log(`Searching knowledge base ${knowledge_base_id} for: "${query}"`);
 
@@ -80,6 +109,7 @@ serve(async (req) => {
       .rpc('search_similar_chunks', {
         query_embedding: `[${queryEmbedding.join(',')}]`,
         kb_id: knowledge_base_id,
+        p_user_id: user.id,
         match_threshold: validatedThreshold,
         match_count: validatedCount
       });

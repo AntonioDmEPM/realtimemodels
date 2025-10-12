@@ -273,6 +273,7 @@ export type Database = {
           kb_id: string
           match_count?: number
           match_threshold?: number
+          p_user_id: string
           query_embedding: string
         }
         Returns: {

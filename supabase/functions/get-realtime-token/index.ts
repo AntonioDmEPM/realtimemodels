@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
@@ -13,6 +14,26 @@ serve(async (req) => {
 
   try {
     console.log('=== get-realtime-token function invoked ===');
+    
+    // Authenticate user
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Missing authorization header');
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('Authentication failed:', userError);
+      throw new Error('Unauthorized');
+    }
+
+    console.log('User authenticated:', user.id);
     
     const OPENAI_API_KEY = Deno.env.get('OpenAI_API_Token');
     console.log('OpenAI_API_Token exists:', !!OPENAI_API_KEY);

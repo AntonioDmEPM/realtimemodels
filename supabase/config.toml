@@ -1,13 +1,13 @@
 project_id = "cqrzuisvazfqngvcwumf"
 
 [functions.get-realtime-token]
-verify_jwt = false
+verify_jwt = true
 
 [functions.chat-completion]
-verify_jwt = false
+verify_jwt = true
 
 [functions.upload-document]
 verify_jwt = true
 
 [functions.search-knowledge]
-verify_jwt = false
+verify_jwt = true

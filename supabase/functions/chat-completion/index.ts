@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
@@ -13,6 +14,26 @@ serve(async (req) => {
 
   try {
     console.log('=== chat-completion function invoked ===');
+    
+    // Authenticate user
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Missing authorization header');
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('Authentication failed:', userError);
+      throw new Error('Unauthorized');
+    }
+
+    console.log('User authenticated:', user.id);
     
     const OPENAI_API_KEY = Deno.env.get('OpenAI_API_Token');
     if (!OPENAI_API_KEY) {
@@ -56,6 +77,19 @@ serve(async (req) => {
     
     // If knowledge base is configured, search for relevant context
     if (knowledgeBaseId && messages.length > 0) {
+      // Validate knowledge base ownership
+      const { data: kb, error: kbError } = await supabase
+        .from('knowledge_bases')
+        .select('id')
+        .eq('id', knowledgeBaseId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (kbError || !kb) {
+        console.error('Knowledge base not found or unauthorized:', kbError);
+        throw new Error('Knowledge base not found or unauthorized');
+      }
+
       const lastUserMessage = messages[messages.length - 1]?.content;
       
       if (lastUserMessage) {
@@ -79,38 +113,25 @@ serve(async (req) => {
             const embeddingData = await embeddingResponse.json();
             const queryEmbedding = embeddingData.data[0].embedding;
 
-            // Search similar chunks in knowledge base
-            const supabaseUrl = Deno.env.get('SUPABASE_URL');
-            const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-            
-            if (!supabaseUrl || !supabaseKey) {
-              console.error('Supabase credentials not configured');
-              throw new Error('Supabase credentials not configured');
-            }
-            
-            const searchResponse = await fetch(`${supabaseUrl}/rest/v1/rpc/search_similar_chunks`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${supabaseKey}`,
-                'Content-Type': 'application/json',
-                'apikey': supabaseKey,
-              },
-              body: JSON.stringify({
+            // Search similar chunks in knowledge base using authenticated user
+            const { data: chunks, error: searchError } = await supabase
+              .rpc('search_similar_chunks', {
                 query_embedding: queryEmbedding,
-                p_knowledge_base_id: knowledgeBaseId,
+                kb_id: knowledgeBaseId,
+                p_user_id: user.id,
                 match_threshold: 0.7,
                 match_count: 3,
-              }),
-            });
+              });
 
-            if (searchResponse.ok) {
-              const chunks = await searchResponse.json();
+            if (!searchError && chunks) {
               console.log('Found knowledge chunks:', chunks.length);
               
               if (chunks.length > 0) {
                 knowledgeContext = '\n\nRelevant context from knowledge base:\n' + 
                   chunks.map((chunk: any) => chunk.content).join('\n\n');
               }
+            } else if (searchError) {
+              console.error('Knowledge base search error:', searchError);
             }
           }
         } catch (error) {
