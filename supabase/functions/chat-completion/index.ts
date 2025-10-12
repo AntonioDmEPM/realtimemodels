@@ -22,6 +22,35 @@ serve(async (req) => {
 
     const { messages, model, knowledgeBaseId } = await req.json();
     console.log('Request params - model:', model, 'messages count:', messages?.length);
+    
+    // Input validation
+    if (!Array.isArray(messages) || messages.length === 0) {
+      throw new Error('Messages must be a non-empty array');
+    }
+    
+    if (messages.length > 100) {
+      throw new Error('Too many messages (max 100)');
+    }
+    
+    // Validate each message
+    for (const msg of messages) {
+      if (!msg.content || typeof msg.content !== 'string') {
+        throw new Error('Invalid message format');
+      }
+      if (msg.content.length > 50000) {
+        throw new Error('Message content too long (max 50000 characters)');
+      }
+    }
+    
+    // Validate model
+    const allowedModels = ['gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-4o', 'gpt-4o-mini'];
+    const validatedModel = model && allowedModels.includes(model) ? model : 'gpt-5-mini';
+    
+    // Validate knowledge base ID format if provided
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (knowledgeBaseId && !uuidRegex.test(knowledgeBaseId)) {
+      throw new Error('Invalid knowledge base ID format');
+    }
 
     let knowledgeContext = '';
     
@@ -109,7 +138,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: model || 'gpt-5-mini',
+        model: validatedModel,
         messages: messagesWithContext,
         max_completion_tokens: 4096,
       }),
@@ -136,11 +165,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Function error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error message:', errorMessage);
+    console.error('Error details:', errorMessage);
     
     return new Response(JSON.stringify({ 
-      error: errorMessage,
-      details: error instanceof Error ? error.stack : undefined 
+      error: 'Failed to generate completion'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

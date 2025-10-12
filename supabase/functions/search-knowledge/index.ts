@@ -26,9 +26,28 @@ serve(async (req) => {
 
     const { query, knowledge_base_id, match_threshold = 0.7, match_count = 5 } = await req.json();
 
-    if (!query || !knowledge_base_id) {
-      throw new Error('Missing query or knowledge_base_id');
+    // Input validation
+    if (!query || typeof query !== 'string') {
+      throw new Error('Query must be a non-empty string');
     }
+    
+    if (query.length > 10000) {
+      throw new Error('Query too long (max 10000 characters)');
+    }
+    
+    if (!knowledge_base_id || typeof knowledge_base_id !== 'string') {
+      throw new Error('knowledge_base_id is required');
+    }
+    
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(knowledge_base_id)) {
+      throw new Error('Invalid knowledge_base_id format');
+    }
+    
+    // Validate numeric parameters
+    const validatedThreshold = Math.max(0, Math.min(1, Number(match_threshold) || 0.7));
+    const validatedCount = Math.max(1, Math.min(50, Number(match_count) || 5));
 
     console.log(`Searching knowledge base ${knowledge_base_id} for: "${query}"`);
 
@@ -61,8 +80,8 @@ serve(async (req) => {
       .rpc('search_similar_chunks', {
         query_embedding: `[${queryEmbedding.join(',')}]`,
         kb_id: knowledge_base_id,
-        match_threshold: match_threshold,
-        match_count: match_count
+        match_threshold: validatedThreshold,
+        match_count: validatedCount
       });
 
     if (searchError) {
@@ -83,8 +102,11 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in search-knowledge:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error details:', errorMessage);
+    
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'Failed to search knowledge base' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

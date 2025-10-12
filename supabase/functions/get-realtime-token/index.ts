@@ -24,8 +24,15 @@ serve(async (req) => {
     }
 
     const { model, voice } = await req.json();
-    console.log('Request params - model:', model, 'voice:', voice);
-
+    
+    // Input validation
+    const allowedModels = ['gpt-4o-realtime-preview-2024-12-17', 'gpt-realtime-mini'];
+    const allowedVoices = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'];
+    
+    const validatedModel = model && allowedModels.includes(model) ? model : 'gpt-4o-realtime-preview-2024-12-17';
+    const validatedVoice = voice && allowedVoices.includes(voice) ? voice : 'ash';
+    
+    console.log('Validated params - model:', validatedModel, 'voice:', validatedVoice);
     console.log('Calling OpenAI API...');
     const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
@@ -34,8 +41,8 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: model || "gpt-4o-realtime-preview-2024-12-17",
-        voice: voice || "ash",
+        model: validatedModel,
+        voice: validatedVoice,
       }),
     });
 
@@ -60,11 +67,10 @@ serve(async (req) => {
   } catch (error) {
     console.error("Function error:", error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error("Error message:", errorMessage);
+    console.error("Error details:", errorMessage);
     
     return new Response(JSON.stringify({ 
-      error: errorMessage,
-      details: error instanceof Error ? error.stack : undefined 
+      error: 'Failed to generate realtime session'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
