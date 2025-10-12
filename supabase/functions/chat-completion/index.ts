@@ -35,6 +35,36 @@ serve(async (req) => {
 
     console.log('User authenticated:', user.id);
     
+    // Rate limiting - 20 requests per minute
+    const rateLimitWindow = new Date(Date.now() - 60000);
+    const { data: rateLimitData } = await supabase
+      .from('rate_limits')
+      .select('request_count')
+      .eq('user_id', user.id)
+      .eq('function_name', 'chat-completion')
+      .gte('window_start', rateLimitWindow.toISOString())
+      .single();
+
+    if (rateLimitData && rateLimitData.request_count >= 20) {
+      return new Response(JSON.stringify({ 
+        error: 'Rate limit exceeded. Please wait before making more requests.' 
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Update rate limit counter
+    const windowStart = new Date(Math.floor(Date.now() / 60000) * 60000);
+    await supabase.from('rate_limits').upsert({
+      user_id: user.id,
+      function_name: 'chat-completion',
+      window_start: windowStart.toISOString(),
+      request_count: (rateLimitData?.request_count || 0) + 1
+    }, {
+      onConflict: 'user_id,function_name,window_start'
+    });
+    
     const OPENAI_API_KEY = Deno.env.get('OpenAI_API_Token');
     if (!OPENAI_API_KEY) {
       console.error('OpenAI_API_Token is not configured in secrets');

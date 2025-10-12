@@ -139,6 +139,33 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          created_at: string | null
+          function_name: string
+          id: string
+          request_count: number
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          created_at?: string | null
+          function_name: string
+          id?: string
+          request_count?: number
+          user_id: string
+          window_start: string
+        }
+        Update: {
+          created_at?: string | null
+          function_name?: string
+          id?: string
+          request_count?: number
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
           bot_prompt: string
@@ -215,6 +242,10 @@ export type Database = {
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
+      }
+      cleanup_old_rate_limits: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       halfvec_avg: {
         Args: { "": number[] }

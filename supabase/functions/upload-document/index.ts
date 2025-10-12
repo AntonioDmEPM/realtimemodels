@@ -38,6 +38,38 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
+    console.log('User authenticated:', user.id);
+
+    // Rate limiting - 5 uploads per hour (very expensive operation)
+    const rateLimitWindow = new Date(Date.now() - 3600000); // 1 hour ago
+    const { data: rateLimitData } = await supabase
+      .from('rate_limits')
+      .select('request_count')
+      .eq('user_id', user.id)
+      .eq('function_name', 'upload-document')
+      .gte('window_start', rateLimitWindow.toISOString())
+      .single();
+
+    if (rateLimitData && rateLimitData.request_count >= 5) {
+      return new Response(JSON.stringify({ 
+        error: 'Rate limit exceeded. You can upload up to 5 documents per hour.' 
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Update rate limit counter
+    const windowStart = new Date(Math.floor(Date.now() / 3600000) * 3600000); // Round to hour
+    await supabase.from('rate_limits').upsert({
+      user_id: user.id,
+      function_name: 'upload-document',
+      window_start: windowStart.toISOString(),
+      request_count: (rateLimitData?.request_count || 0) + 1
+    }, {
+      onConflict: 'user_id,function_name,window_start'
+    });
+
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const knowledgeBaseId = formData.get('knowledge_base_id') as string;
