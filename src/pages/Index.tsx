@@ -610,7 +610,7 @@ export default function Index() {
         <header className="mb-8">
           <div className="flex items-center justify-between">
             <h2 className="text-4xl md:text-6xl font-bold uppercase">
-              <span className="text-primary">EPAM AI/Run™</span>.ClarityRTC
+              <span className="text-primary">EPAM AI/Run™</span>.Transform
             </h2>
             <HeaderMenu
               userEmail={user.email}
