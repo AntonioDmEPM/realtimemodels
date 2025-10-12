@@ -12,10 +12,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { Menu, LogOut, User, Trash2 } from "lucide-react";
+import { Menu, LogOut, User, Trash2, Shield } from "lucide-react";
 import { SessionStats, PricingConfig } from "@/utils/webrtcAudio";
 import { TimelineSegment } from "@/components/ConversationTimeline";
 import { TokenDataPoint } from "@/components/TokenDashboard";
+import { useNavigate } from "react-router-dom";
 
 interface SavedSession {
   id: string;
@@ -49,12 +50,27 @@ export default function HeaderMenu({
   isConnected,
 }: HeaderMenuProps) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState<SavedSession[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     loadSessions();
+    checkAdminStatus();
   }, []);
+
+  const checkAdminStatus = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: roles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id);
+
+    setIsAdmin(roles?.some(r => r.role === 'admin') || false);
+  };
 
   const loadSessions = async () => {
     const { data, error } = await supabase
@@ -183,6 +199,21 @@ export default function HeaderMenu({
           )}
         </ScrollArea>
         <DropdownMenuSeparator />
+        {isAdmin && (
+          <>
+            <DropdownMenuItem 
+              onClick={() => {
+                navigate('/admin');
+                setIsOpen(false);
+              }} 
+              className="cursor-pointer"
+            >
+              <Shield className="mr-2 h-4 w-4" />
+              <span>Admin Panel</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem onClick={onLogout} className="cursor-pointer">
           <LogOut className="mr-2 h-4 w-4" />
           <span>Logout</span>
