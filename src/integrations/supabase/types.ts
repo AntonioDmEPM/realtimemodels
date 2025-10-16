@@ -112,6 +112,199 @@ export type Database = {
           },
         ]
       }
+      graph_documents: {
+        Row: {
+          created_at: string | null
+          entity_count: number | null
+          error_message: string | null
+          file_size: number
+          file_type: string
+          filename: string
+          graph_knowledge_base_id: string
+          id: string
+          relationship_count: number | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          entity_count?: number | null
+          error_message?: string | null
+          file_size: number
+          file_type: string
+          filename: string
+          graph_knowledge_base_id: string
+          id?: string
+          relationship_count?: number | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          entity_count?: number | null
+          error_message?: string | null
+          file_size?: number
+          file_type?: string
+          filename?: string
+          graph_knowledge_base_id?: string
+          id?: string
+          relationship_count?: number | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "graph_documents_graph_knowledge_base_id_fkey"
+            columns: ["graph_knowledge_base_id"]
+            isOneToOne: false
+            referencedRelation: "graph_knowledge_bases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      graph_entities: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          graph_document_id: string
+          graph_knowledge_base_id: string
+          id: string
+          name: string
+          properties: Json | null
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          graph_document_id: string
+          graph_knowledge_base_id: string
+          id?: string
+          name: string
+          properties?: Json | null
+          type: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          graph_document_id?: string
+          graph_knowledge_base_id?: string
+          id?: string
+          name?: string
+          properties?: Json | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "graph_entities_graph_document_id_fkey"
+            columns: ["graph_document_id"]
+            isOneToOne: false
+            referencedRelation: "graph_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "graph_entities_graph_knowledge_base_id_fkey"
+            columns: ["graph_knowledge_base_id"]
+            isOneToOne: false
+            referencedRelation: "graph_knowledge_bases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      graph_knowledge_bases: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      graph_relationships: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          graph_document_id: string
+          graph_knowledge_base_id: string
+          id: string
+          properties: Json | null
+          relationship_type: string
+          source_entity_id: string
+          target_entity_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          graph_document_id: string
+          graph_knowledge_base_id: string
+          id?: string
+          properties?: Json | null
+          relationship_type: string
+          source_entity_id: string
+          target_entity_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          graph_document_id?: string
+          graph_knowledge_base_id?: string
+          id?: string
+          properties?: Json | null
+          relationship_type?: string
+          source_entity_id?: string
+          target_entity_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "graph_relationships_graph_document_id_fkey"
+            columns: ["graph_document_id"]
+            isOneToOne: false
+            referencedRelation: "graph_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "graph_relationships_graph_knowledge_base_id_fkey"
+            columns: ["graph_knowledge_base_id"]
+            isOneToOne: false
+            referencedRelation: "graph_knowledge_bases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "graph_relationships_source_entity_id_fkey"
+            columns: ["source_entity_id"]
+            isOneToOne: false
+            referencedRelation: "graph_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "graph_relationships_target_entity_id_fkey"
+            columns: ["target_entity_id"]
+            isOneToOne: false
+            referencedRelation: "graph_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_bases: {
         Row: {
           created_at: string | null
@@ -355,7 +548,23 @@ export type Database = {
       }
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: string
+        Returns: unknown
+      }
+      search_graph_entities: {
+        Args: {
+          kb_id: string
+          max_results?: number
+          p_user_id: string
+          query_text: string
+        }
+        Returns: {
+          entity_description: string
+          entity_id: string
+          entity_name: string
+          entity_type: string
+          related_entities: Json
+          relationships: Json
+        }[]
       }
       search_similar_chunks: {
         Args: {
