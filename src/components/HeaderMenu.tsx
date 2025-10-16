@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { Menu, LogOut, User, Trash2, Shield, Database, Network } from "lucide-react";
+import { Menu, LogOut, User, Trash2, Shield } from "lucide-react";
 import { SessionStats, PricingConfig } from "@/utils/webrtcAudio";
 import { TimelineSegment } from "@/components/ConversationTimeline";
 import { TokenDataPoint } from "@/components/TokenDashboard";
@@ -198,27 +198,6 @@ export default function HeaderMenu({
             </div>
           )}
         </ScrollArea>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem 
-          onClick={() => {
-            navigate('/knowledge-base');
-            setIsOpen(false);
-          }} 
-          className="cursor-pointer"
-        >
-          <Database className="mr-2 h-4 w-4" />
-          <span>Vector Knowledge Base</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem 
-          onClick={() => {
-            navigate('/graph-knowledge-base');
-            setIsOpen(false);
-          }} 
-          className="cursor-pointer"
-        >
-          <Network className="mr-2 h-4 w-4" />
-          <span>GraphRAG Knowledge Base</span>
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
         {isAdmin && (
           <>

@@ -11,9 +11,3 @@ verify_jwt = true
 
 [functions.search-knowledge]
 verify_jwt = true
-
-[functions.process-graph-document]
-verify_jwt = true
-
-[functions.search-graph]
-verify_jwt = true
