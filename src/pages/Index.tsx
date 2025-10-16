@@ -578,6 +578,11 @@ export default function Index() {
       output: totalOutput
     });
   };
+  
+  const handleKnowledgeBaseChange = (value: string | undefined, type: KnowledgeBaseType) => {
+    setKnowledgeBaseId(value);
+  };
+  
   useEffect(() => {
     return () => {
       stopSession();
@@ -618,7 +623,7 @@ export default function Index() {
 
           <KnowledgeBaseSelector 
             value={knowledgeBaseId} 
-            onChange={setKnowledgeBaseId} 
+            onChange={handleKnowledgeBaseChange} 
             kbType={knowledgeBaseType}
             onTypeChange={setKnowledgeBaseType}
           />
