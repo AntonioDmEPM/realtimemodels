@@ -128,7 +128,12 @@ Return ONLY valid JSON, no other text.`;
     }
 
     const aiData = await aiResponse.json();
-    const extractedData = JSON.parse(aiData.choices[0].message.content);
+    let content = aiData.choices[0].message.content;
+    
+    // Remove markdown code fences if present
+    content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    const extractedData = JSON.parse(content);
 
     // Insert entities
     const entityMap = new Map();
