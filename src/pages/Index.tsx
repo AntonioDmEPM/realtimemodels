@@ -15,7 +15,7 @@ import EventLog from '@/components/EventLog';
 import AudioIndicator from '@/components/AudioIndicator';
 import PricingSettings from '@/components/PricingSettings';
 import PromptSettings from '@/components/PromptSettings';
-import { KnowledgeBaseSelector } from '@/components/KnowledgeBaseSelector';
+import { KnowledgeBaseSelector, KnowledgeBaseType } from '@/components/KnowledgeBaseSelector';
 import ConversationTimer from '@/components/ConversationTimer';
 import ConversationTimeline, { TimelineSegment } from '@/components/ConversationTimeline';
 import TokenDashboard, { TokenDataPoint } from '@/components/TokenDashboard';
@@ -59,6 +59,7 @@ export default function Index() {
   const [selectedVoice, setSelectedVoice] = useState('alloy');
   const [botPrompt, setBotPrompt] = useState('You are a helpful AI assistant. Be concise and friendly in your responses.');
   const [knowledgeBaseId, setKnowledgeBaseId] = useState<string | undefined>(undefined);
+  const [knowledgeBaseType, setKnowledgeBaseType] = useState<KnowledgeBaseType>('rag');
   const [pricingConfig, setPricingConfig] = useState<PricingConfig>({
     audioInputCost: 0.00004,
     audioOutputCost: 0.00008,
@@ -614,7 +615,12 @@ export default function Index() {
 
           <PromptSettings onPromptChange={setBotPrompt} currentPrompt={botPrompt} />
 
-          <KnowledgeBaseSelector value={knowledgeBaseId} onChange={setKnowledgeBaseId} />
+          <KnowledgeBaseSelector 
+            value={knowledgeBaseId} 
+            onChange={setKnowledgeBaseId} 
+            kbType={knowledgeBaseType}
+            onTypeChange={setKnowledgeBaseType}
+          />
 
           <PricingSettings onPricingChange={setPricingConfig} selectedModel={selectedModel} />
 
