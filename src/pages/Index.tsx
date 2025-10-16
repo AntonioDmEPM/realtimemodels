@@ -476,7 +476,8 @@ export default function Index() {
               content: botPrompt
             }, ...chatMessages, userMessage],
             model: selectedModel,
-            knowledgeBaseId: knowledgeBaseId
+            knowledgeBaseId: knowledgeBaseId,
+            knowledgeBaseType: knowledgeBaseType
           }
         });
         if (error) throw error;

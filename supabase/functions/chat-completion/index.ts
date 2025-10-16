@@ -71,8 +71,8 @@ serve(async (req) => {
       throw new Error('OpenAI_API_Token is not configured');
     }
 
-    const { messages, model, knowledgeBaseId } = await req.json();
-    console.log('Request params - model:', model, 'messages count:', messages?.length);
+    const { messages, model, knowledgeBaseId, knowledgeBaseType } = await req.json();
+    console.log('Request params - model:', model, 'messages count:', messages?.length, 'KB type:', knowledgeBaseType);
     
     // Input validation
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -107,9 +107,12 @@ serve(async (req) => {
     
     // If knowledge base is configured, search for relevant context
     if (knowledgeBaseId && messages.length > 0) {
+      const isGraphRAG = knowledgeBaseType === 'graphrag';
+      const tableName = isGraphRAG ? 'graph_knowledge_bases' : 'knowledge_bases';
+      
       // Validate knowledge base ownership
       const { data: kb, error: kbError } = await supabase
-        .from('knowledge_bases')
+        .from(tableName)
         .select('id')
         .eq('id', knowledgeBaseId)
         .eq('user_id', user.id)
@@ -123,45 +126,74 @@ serve(async (req) => {
       const lastUserMessage = messages[messages.length - 1]?.content;
       
       if (lastUserMessage) {
-        console.log('Searching knowledge base:', knowledgeBaseId);
+        console.log('Searching', isGraphRAG ? 'graph' : 'vector', 'knowledge base:', knowledgeBaseId);
         
         try {
-          // Generate embedding for the query
-          const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${OPENAI_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'text-embedding-3-small',
-              input: lastUserMessage,
-            }),
-          });
-
-          if (embeddingResponse.ok) {
-            const embeddingData = await embeddingResponse.json();
-            const queryEmbedding = embeddingData.data[0].embedding;
-
-            // Search similar chunks in knowledge base using authenticated user
-            const { data: chunks, error: searchError } = await supabase
-              .rpc('search_similar_chunks', {
-                query_embedding: queryEmbedding,
+          if (isGraphRAG) {
+            // GraphRAG: Use graph entity search
+            const { data: graphResults, error: searchError } = await supabase
+              .rpc('search_graph_entities', {
+                query_text: lastUserMessage,
                 kb_id: knowledgeBaseId,
                 p_user_id: user.id,
-                match_threshold: 0.7,
-                match_count: 3,
+                max_results: 5
               });
 
-            if (!searchError && chunks) {
-              console.log('Found knowledge chunks:', chunks.length);
+            if (!searchError && graphResults && graphResults.length > 0) {
+              console.log('Found graph entities:', graphResults.length);
               
-              if (chunks.length > 0) {
+              knowledgeContext = '\n\nRelevant knowledge graph context:\n' + 
+                graphResults.map((result: any) => {
+                  let context = `Entity: ${result.entity_name} (${result.entity_type})`;
+                  if (result.entity_description) {
+                    context += `\nDescription: ${result.entity_description}`;
+                  }
+                  if (result.relationships && result.relationships.length > 0) {
+                    context += `\nRelationships: ${result.relationships.map((r: any) => 
+                      `${r.type} -> ${r.target}`
+                    ).join(', ')}`;
+                  }
+                  return context;
+                }).join('\n\n');
+            } else if (searchError) {
+              console.error('Graph search error:', searchError);
+            }
+          } else {
+            // Vector RAG: Use embedding-based search
+            const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'text-embedding-3-small',
+                input: lastUserMessage,
+              }),
+            });
+
+            if (embeddingResponse.ok) {
+              const embeddingData = await embeddingResponse.json();
+              const queryEmbedding = embeddingData.data[0].embedding;
+
+              // Search similar chunks in knowledge base using authenticated user
+              const { data: chunks, error: searchError } = await supabase
+                .rpc('search_similar_chunks', {
+                  query_embedding: queryEmbedding,
+                  kb_id: knowledgeBaseId,
+                  p_user_id: user.id,
+                  match_threshold: 0.7,
+                  match_count: 3,
+                });
+
+              if (!searchError && chunks && chunks.length > 0) {
+                console.log('Found knowledge chunks:', chunks.length);
+                
                 knowledgeContext = '\n\nRelevant context from knowledge base:\n' + 
                   chunks.map((chunk: any) => chunk.content).join('\n\n');
+              } else if (searchError) {
+                console.error('Knowledge base search error:', searchError);
               }
-            } else if (searchError) {
-              console.error('Knowledge base search error:', searchError);
             }
           }
         } catch (error) {
