@@ -72,7 +72,7 @@ serve(async (req) => {
       throw new Error('OpenAI_API_Token is not configured');
     }
 
-    const { model, voice } = await req.json();
+    const { model, voice, instructions } = await req.json();
     
     // Input validation
     const allowedModels = ['gpt-4o-realtime-preview-2024-12-17', 'gpt-realtime-mini'];
@@ -80,6 +80,7 @@ serve(async (req) => {
     
     const validatedModel = model && allowedModels.includes(model) ? model : 'gpt-4o-realtime-preview-2024-12-17';
     const validatedVoice = voice && allowedVoices.includes(voice) ? voice : 'ash';
+    const sessionInstructions = instructions || 'You are a helpful assistant. When you need current information or real-time data, use the web_search tool.';
     
     console.log('Validated params - model:', validatedModel, 'voice:', validatedVoice);
     console.log('Calling OpenAI API...');
@@ -92,6 +93,22 @@ serve(async (req) => {
       body: JSON.stringify({
         model: validatedModel,
         voice: validatedVoice,
+        instructions: sessionInstructions,
+        tools: [
+          {
+            type: "function",
+            name: "web_search",
+            description: "Search the web for current information. Use this when you need up-to-date information or when the user asks about current events.",
+            parameters: {
+              type: "object",
+              properties: {
+                query: { type: "string", description: "The search query" }
+              },
+              required: ["query"]
+            }
+          }
+        ],
+        tool_choice: "auto"
       }),
     });
 

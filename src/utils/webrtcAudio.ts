@@ -115,39 +115,82 @@ export async function createRealtimeSession(
           }
         };
 
+        // Add tools (web search and optionally knowledge base search)
+        sessionUpdate.session.tools = [
+          {
+            type: 'function',
+            name: 'web_search',
+            description: 'Search the web for current information, news, or any real-time data. Use this when you need up-to-date information beyond your training cutoff or when the user asks about current events.',
+            parameters: {
+              type: 'object',
+              properties: {
+                query: {
+                  type: 'string',
+                  description: 'The search query to look up on the web'
+                }
+              },
+              required: ['query']
+            }
+          }
+        ];
+        
         // Add knowledge base search tool if available
         if (knowledgeBaseId) {
-          sessionUpdate.session.tools = [
-            {
-              type: 'function',
-              name: 'search_knowledge_base',
-              description: 'Search the knowledge base for relevant information. Use this when the user asks questions that might be answered by documents in the knowledge base.',
-              parameters: {
-                type: 'object',
-                properties: {
-                  query: {
-                    type: 'string',
-                    description: 'The search query to find relevant information'
-                  }
-                },
-                required: ['query']
-              }
+          sessionUpdate.session.tools.push({
+            type: 'function',
+            name: 'search_knowledge_base',
+            description: 'Search the knowledge base for relevant information. Use this when the user asks questions that might be answered by documents in the knowledge base.',
+            parameters: {
+              type: 'object',
+              properties: {
+                query: {
+                  type: 'string',
+                  description: 'The search query to find relevant information'
+                }
+              },
+              required: ['query']
             }
-          ];
-          sessionUpdate.session.tool_choice = 'auto';
+          });
         }
+        
+        sessionUpdate.session.tool_choice = 'auto';
         
         dc.send(JSON.stringify(sessionUpdate));
         console.log('Session updated with voice:', voice, 'and instructions:', instructions, 'KB:', knowledgeBaseId);
       }
       
       // Handle function calls from the AI
-      if (eventData.type === 'response.function_call_arguments.done' && knowledgeBaseId) {
+      if (eventData.type === 'response.function_call_arguments.done') {
         const callId = eventData.call_id;
         const functionName = eventData.name;
         const args = JSON.parse(eventData.arguments);
         
-        if (functionName === 'search_knowledge_base') {
+        if (functionName === 'web_search') {
+          console.log('AI requesting web search:', args.query);
+          
+          // Store the search request in an event for display
+          onMessage({
+            type: 'web_search.request',
+            call_id: callId,
+            query: args.query,
+            timestamp: new Date().toISOString()
+          });
+          
+          // Send acknowledgment back to AI (in real implementation, you would actually perform the search)
+          const functionOutput = {
+            type: 'conversation.item.create',
+            item: {
+              type: 'function_call_output',
+              call_id: callId,
+              output: JSON.stringify({
+                message: 'Web search tool is configured but requires implementation. Please ask the user to implement actual web search functionality.'
+              })
+            }
+          };
+          
+          dc.send(JSON.stringify(functionOutput));
+          dc.send(JSON.stringify({ type: 'response.create' }));
+        } else if (functionName === 'search_knowledge_base' && knowledgeBaseId) {
           console.log('AI requesting knowledge base search:', args.query);
           
           // Call the search-knowledge function

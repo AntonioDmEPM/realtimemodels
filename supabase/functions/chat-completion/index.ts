@@ -65,10 +65,12 @@ serve(async (req) => {
       onConflict: 'user_id,function_name,window_start'
     });
     
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const OPENAI_API_KEY = Deno.env.get('OpenAI_API_Token');
-    if (!OPENAI_API_KEY) {
-      console.error('OpenAI_API_Token is not configured in secrets');
-      throw new Error('OpenAI_API_Token is not configured');
+    
+    if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY is not configured in secrets');
+      throw new Error('Lovable AI key not configured');
     }
 
     const { messages, model, knowledgeBaseId } = await req.json();
@@ -93,9 +95,9 @@ serve(async (req) => {
       }
     }
     
-    // Validate model
-    const allowedModels = ['gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-4o', 'gpt-4o-mini'];
-    const validatedModel = model && allowedModels.includes(model) ? model : 'gpt-5-mini';
+    // Validate model - use Lovable AI models
+    const allowedModels = ['google/gemini-2.5-pro', 'google/gemini-2.5-flash', 'google/gemini-2.5-flash-lite', 'openai/gpt-5', 'openai/gpt-5-mini', 'openai/gpt-5-nano'];
+    const validatedModel = model && allowedModels.includes(model) ? model : 'google/gemini-2.5-flash';
     
     // Validate knowledge base ID format if provided
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -106,7 +108,7 @@ serve(async (req) => {
     let knowledgeContext = '';
     
     // If knowledge base is configured, search for relevant context
-    if (knowledgeBaseId && messages.length > 0) {
+    if (knowledgeBaseId && messages.length > 0 && OPENAI_API_KEY) {
       // Validate knowledge base ownership
       const { data: kb, error: kbError } = await supabase
         .from('knowledge_bases')
@@ -180,35 +182,96 @@ serve(async (req) => {
         content: messagesWithContext[lastIndex].content + knowledgeContext
       };
     }
+    
+    // Define web search tool
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "web_search",
+          description: "Search the web for current information, news, or any real-time data. Use this when you need up-to-date information beyond your training cutoff or when the user asks about current events, recent developments, or specific real-time information.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description: "The search query to look up on the web"
+              }
+            },
+            required: ["query"]
+          }
+        }
+      }
+    ];
 
-    console.log('Calling OpenAI Chat Completions API...');
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    console.log('Calling Lovable AI Gateway...');
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: validatedModel,
         messages: messagesWithContext,
-        max_completion_tokens: 4096,
+        tools,
+        tool_choice: "auto"
       }),
     });
 
-    console.log('OpenAI API response status:', response.status);
+    console.log('Lovable AI response status:', response.status);
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error details:', {
+      console.error('Lovable AI error details:', {
         status: response.status,
         statusText: response.statusText,
         errorText: errorText
       });
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ 
+          error: 'Rate limits exceeded, please try again later.' 
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ 
+          error: 'Payment required, please add funds to your Lovable AI workspace.' 
+        }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      throw new Error(`Lovable AI error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('OpenAI API success - completion generated');
+    console.log('Lovable AI success - completion generated');
+    
+    // Check if AI wants to use web search tool
+    if (data.choices?.[0]?.message?.tool_calls) {
+      const toolCall = data.choices[0].message.tool_calls[0];
+      
+      if (toolCall.function.name === 'web_search') {
+        console.log('AI requested web search:', toolCall.function.arguments);
+        const args = JSON.parse(toolCall.function.arguments);
+        
+        // Return tool call to client for execution
+        return new Response(JSON.stringify({
+          ...data,
+          requires_tool: true,
+          tool_name: 'web_search',
+          tool_arguments: args
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
     
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
