@@ -2,24 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Send } from 'lucide-react';
-import AudioIndicator from '@/components/AudioIndicator';
-import ConversationTimer from '@/components/ConversationTimer';
 import { TimelineSegment } from '@/components/ConversationTimeline';
 import { TokenDataPoint } from '@/components/TokenDashboard';
-import ConversationMessages from '@/components/ConversationMessages';
 import HeaderMenu from '@/components/HeaderMenu';
-import { ConfigSidebar } from '@/components/ConfigSidebar';
-import { AnalyticsPanel } from '@/components/AnalyticsPanel';
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
-import { 
-  ResizablePanelGroup, 
-  ResizablePanel, 
-  ResizableHandle 
-} from '@/components/ui/resizable';
+import { AppSidebar } from '@/components/AppSidebar';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { VoiceModelView } from '@/components/views/VoiceModelView';
+import { SystemPromptView } from '@/components/views/SystemPromptView';
+import { KnowledgeBaseView } from '@/components/views/KnowledgeBaseView';
+import { SearchSettingsView } from '@/components/views/SearchSettingsView';
+import { SessionView } from '@/components/views/SessionView';
 import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig } from '@/utils/webrtcAudio';
 import { updateSessionTone } from '@/utils/toneAdapter';
 import { useToast } from '@/hooks/use-toast';
@@ -96,6 +88,7 @@ export default function Index() {
     reason?: string;
   } | null>(null);
   const [adaptiveTone, setAdaptiveTone] = useState(true);
+  const [currentView, setCurrentView] = useState('session'); // Default to session view
 
   // Authentication check
   useEffect(() => {
@@ -811,144 +804,117 @@ export default function Index() {
     return null;
   }
 
+  const renderView = () => {
+    switch (currentView) {
+      case 'voice-model':
+        return (
+          <VoiceModelView
+            selectedModel={selectedModel}
+            selectedVoice={selectedVoice}
+            mode={interactionMode}
+            pricingConfig={pricingConfig}
+            isConnected={isConnected}
+            onModelChange={setSelectedModel}
+            onVoiceChange={setSelectedVoice}
+            onModeChange={setInteractionMode}
+            onPricingChange={setPricingConfig}
+          />
+        );
+      case 'system-prompt':
+        return (
+          <SystemPromptView
+            currentPrompt={botPrompt}
+            onPromptChange={setBotPrompt}
+          />
+        );
+      case 'knowledge-base':
+        return (
+          <KnowledgeBaseView
+            knowledgeBaseId={knowledgeBaseId}
+            onKnowledgeBaseChange={setKnowledgeBaseId}
+          />
+        );
+      case 'search-settings':
+        return (
+          <SearchSettingsView
+            searchService={searchService}
+            searchTypes={searchTypes}
+            onSearchServiceChange={setSearchService}
+            onSearchTypesChange={setSearchTypes}
+          />
+        );
+      case 'session':
+      default:
+        return (
+          <SessionView
+            isConnected={isConnected}
+            isAudioActive={isAudioActive}
+            sessionStartTime={sessionStartTime}
+            currentSentiment={currentSentiment}
+            mode={interactionMode}
+            chatInput={chatInput}
+            chatMessages={chatMessages}
+            currentStats={currentStats}
+            sessionStats={sessionStats}
+            tokenDataPoints={tokenDataPoints}
+            totalInputTokens={
+              sessionStats.audioInputTokens +
+              sessionStats.textInputTokens +
+              sessionStats.cachedInputTokens
+            }
+            totalOutputTokens={
+              sessionStats.audioOutputTokens + sessionStats.textOutputTokens
+            }
+            timelineSegments={timelineSegments}
+            events={events}
+            onStart={() => startSession(selectedVoice, selectedModel)}
+            onStop={stopSession}
+            onResetAll={resetAll}
+            onChatInputChange={setChatInput}
+            onSendMessage={() => {
+              if (chatInput.trim() && isConnected) {
+                sendChatMessage(chatInput);
+                setChatInput('');
+              }
+            }}
+          />
+        );
+    }
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        {/* Left Sidebar - Configuration */}
-        <ConfigSidebar
-          onStart={startSession}
-          onStop={stopSession}
-          isConnected={isConnected}
-          statusMessage={statusMessage}
-          statusType={statusType}
-          onModelChange={setSelectedModel}
-          onModeChange={setInteractionMode}
-          mode={interactionMode}
-          onPromptChange={setBotPrompt}
-          currentPrompt={botPrompt}
-          knowledgeBaseId={knowledgeBaseId}
-          onKnowledgeBaseChange={setKnowledgeBaseId}
-          onPricingChange={setPricingConfig}
-          selectedModel={selectedModel}
-          searchService={searchService}
-          onSearchServiceChange={setSearchService}
-          searchTypes={searchTypes}
-          onSearchTypesChange={setSearchTypes}
-          currentSentiment={currentSentiment}
-          adaptiveTone={adaptiveTone}
-          onAdaptiveToneChange={setAdaptiveTone}
+        {/* Left Sidebar - Navigation */}
+        <AppSidebar
+          currentView={currentView}
+          onViewChange={setCurrentView}
         />
 
         {/* Main Content Area */}
         <SidebarInset className="flex-1">
-          <ResizablePanelGroup direction="horizontal" className="h-screen">
-            {/* Center - Chat & Status */}
-            <ResizablePanel defaultSize={60} minSize={40}>
-              <div className="h-full flex flex-col">
-                {/* Header */}
-                <header className="border-b p-4">
-                  <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-bold">Real Time APIs</h1>
-                    <HeaderMenu
-                      userEmail={user.email}
-                      onLogout={handleLogout}
-                      onLoadSession={handleLoadSession}
-                      isConnected={isConnected}
-                    />
-                  </div>
-                </header>
-
-                {/* Status Bar */}
-                <div className="border-b p-4 bg-card/50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <AudioIndicator isActive={isAudioActive} />
-                    </div>
-                    <div className="flex-shrink-0 ml-4">
-                      <ConversationTimer
-                        isActive={isConnected}
-                        startTime={sessionStartTime}
-                      />
-                    </div>
-                    {!isConnected && (sessionStats.totalCost > 0 || events.length > 0) && (
-                      <div className="flex-shrink-0 ml-4">
-                        <Button onClick={resetAll} variant="outline" size="sm">
-                          Reset All
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+          <div className="h-screen flex flex-col">
+            {/* Header */}
+            <header className="border-b p-4 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <SidebarTrigger />
+                  <h1 className="text-2xl font-bold">Real Time APIs</h1>
                 </div>
-
-                {/* Chat Messages - Takes remaining space */}
-                <div className="flex-1 overflow-hidden">
-                  <Card className="h-full flex flex-col">
-                    <div className="flex-1 overflow-hidden">
-                      <ConversationMessages events={events} />
-                    </div>
-
-                    {/* Chat Input */}
-                    {interactionMode === 'chat' && (
-                      <div className="border-t p-4 bg-background">
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            if (chatInput.trim() && isConnected) {
-                              sendChatMessage(chatInput);
-                              setChatInput('');
-                            }
-                          }}
-                          className="flex gap-2"
-                        >
-                          <Input
-                            value={chatInput}
-                            onChange={(e) => setChatInput(e.target.value)}
-                            placeholder={
-                              isConnected
-                                ? 'Type your message...'
-                                : 'Start a session to chat'
-                            }
-                            disabled={!isConnected}
-                            className="flex-1"
-                          />
-                          <Button
-                            type="submit"
-                            size="icon"
-                            disabled={!isConnected || !chatInput.trim()}
-                          >
-                            <Send className="h-4 w-4" />
-                          </Button>
-                        </form>
-                      </div>
-                    )}
-                  </Card>
-                </div>
+                <HeaderMenu
+                  userEmail={user.email}
+                  onLogout={handleLogout}
+                  onLoadSession={handleLoadSession}
+                  isConnected={isConnected}
+                />
               </div>
-            </ResizablePanel>
+            </header>
 
-            <ResizableHandle withHandle />
-
-            {/* Right Panel - Analytics */}
-            <ResizablePanel defaultSize={40} minSize={30}>
-              <AnalyticsPanel
-                currentStats={currentStats}
-                sessionStats={sessionStats}
-                tokenDataPoints={tokenDataPoints}
-                sessionStartTime={sessionStartTime}
-                isActive={isConnected}
-                totalInputTokens={
-                  sessionStats.audioInputTokens +
-                  sessionStats.textInputTokens +
-                  sessionStats.cachedInputTokens
-                }
-                totalOutputTokens={
-                  sessionStats.audioOutputTokens + sessionStats.textOutputTokens
-                }
-                timelineSegments={timelineSegments}
-                events={events}
-              />
-            </ResizablePanel>
-          </ResizablePanelGroup>
+            {/* View Content */}
+            <div className="flex-1 overflow-hidden">
+              {renderView()}
+            </div>
+          </div>
         </SidebarInset>
       </div>
     </SidebarProvider>
