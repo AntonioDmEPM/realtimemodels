@@ -168,6 +168,7 @@ export async function createRealtimeSession(
         
         if (functionName === 'web_search') {
           console.log('AI requesting web search:', args.query);
+          console.log('Using Supabase token:', supabaseToken ? 'Token present' : 'NO TOKEN');
           
           // Store the search request in an event for display
           onMessage({
@@ -176,6 +177,21 @@ export async function createRealtimeSession(
             query: args.query,
             timestamp: new Date().toISOString()
           });
+          
+          if (!supabaseToken) {
+            console.error('Missing Supabase token for web search');
+            const functionOutput = {
+              type: 'conversation.item.create',
+              item: {
+                type: 'function_call_output',
+                call_id: callId,
+                output: JSON.stringify({ error: 'Authentication token not available' })
+              }
+            };
+            dc.send(JSON.stringify(functionOutput));
+            dc.send(JSON.stringify({ type: 'response.create' }));
+            return;
+          }
           
           // Call the web-search edge function
           fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/web-search`, {

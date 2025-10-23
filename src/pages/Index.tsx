@@ -309,10 +309,15 @@ export default function Index() {
         visualizer.setup(stream);
         setAudioVisualizer(visualizer);
         setStatusMessage('Establishing connection...');
+        const supabaseToken = session?.access_token;
+        console.log('Starting realtime session with Supabase token:', supabaseToken ? 'Present' : 'MISSING');
+        if (!supabaseToken) {
+          throw new Error('User session token not available. Please refresh the page.');
+        }
         const {
           pc,
           dc
-        } = await createRealtimeSession(stream, token, voice, model, botPrompt, handleMessage, session?.access_token || '', knowledgeBaseId || undefined, false);
+        } = await createRealtimeSession(stream, token, voice, model, botPrompt, handleMessage, supabaseToken, knowledgeBaseId || undefined, false);
         setPeerConnection(pc);
         setDataChannel(dc);
         const startTime = Date.now();
