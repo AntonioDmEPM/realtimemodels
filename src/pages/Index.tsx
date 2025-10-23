@@ -5,23 +5,21 @@ import { User, Session } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Send } from 'lucide-react';
-import VoiceControls from '@/components/VoiceControls';
-import StatsDisplay from '@/components/StatsDisplay';
-import EventLog from '@/components/EventLog';
 import AudioIndicator from '@/components/AudioIndicator';
-import PricingSettings from '@/components/PricingSettings';
-import PromptSettings from '@/components/PromptSettings';
-import { KnowledgeBaseSelector } from '@/components/KnowledgeBaseSelector';
 import ConversationTimer from '@/components/ConversationTimer';
-import ConversationTimeline, { TimelineSegment } from '@/components/ConversationTimeline';
-import TokenDashboard, { TokenDataPoint } from '@/components/TokenDashboard';
+import { TimelineSegment } from '@/components/ConversationTimeline';
+import { TokenDataPoint } from '@/components/TokenDashboard';
 import ConversationMessages from '@/components/ConversationMessages';
 import HeaderMenu from '@/components/HeaderMenu';
-import SentimentIndicator from '@/components/SentimentIndicator';
+import { ConfigSidebar } from '@/components/ConfigSidebar';
+import { AnalyticsPanel } from '@/components/AnalyticsPanel';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { 
+  ResizablePanelGroup, 
+  ResizablePanel, 
+  ResizableHandle 
+} from '@/components/ui/resizable';
 import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig } from '@/utils/webrtcAudio';
 import { updateSessionTone } from '@/utils/toneAdapter';
 import { useToast } from '@/hooks/use-toast';
@@ -812,183 +810,147 @@ export default function Index() {
   if (!user || !session) {
     return null;
   }
-  return <div className="min-h-screen">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <header className="mb-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-4xl md:text-6xl font-bold">Real Time APIs</h2>
-            <HeaderMenu userEmail={user.email} onLogout={handleLogout} onLoadSession={handleLoadSession} isConnected={isConnected} />
-          </div>
-        </header>
 
-        <div className="space-y-6">
-          <Card className="p-6 shadow-card bg-card/50 backdrop-blur-sm border-primary/20">
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex-1 min-w-0">
-                <AudioIndicator isActive={isAudioActive} />
+  return (
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full">
+        {/* Left Sidebar - Configuration */}
+        <ConfigSidebar
+          onStart={startSession}
+          onStop={stopSession}
+          isConnected={isConnected}
+          statusMessage={statusMessage}
+          statusType={statusType}
+          onModelChange={setSelectedModel}
+          onModeChange={setInteractionMode}
+          mode={interactionMode}
+          onPromptChange={setBotPrompt}
+          currentPrompt={botPrompt}
+          knowledgeBaseId={knowledgeBaseId}
+          onKnowledgeBaseChange={setKnowledgeBaseId}
+          onPricingChange={setPricingConfig}
+          selectedModel={selectedModel}
+          searchService={searchService}
+          onSearchServiceChange={setSearchService}
+          searchTypes={searchTypes}
+          onSearchTypesChange={setSearchTypes}
+          currentSentiment={currentSentiment}
+          adaptiveTone={adaptiveTone}
+          onAdaptiveToneChange={setAdaptiveTone}
+        />
+
+        {/* Main Content Area */}
+        <SidebarInset className="flex-1">
+          <ResizablePanelGroup direction="horizontal" className="h-screen">
+            {/* Center - Chat & Status */}
+            <ResizablePanel defaultSize={60} minSize={40}>
+              <div className="h-full flex flex-col">
+                {/* Header */}
+                <header className="border-b p-4">
+                  <div className="flex items-center justify-between">
+                    <h1 className="text-2xl font-bold">Real Time APIs</h1>
+                    <HeaderMenu
+                      userEmail={user.email}
+                      onLogout={handleLogout}
+                      onLoadSession={handleLoadSession}
+                      isConnected={isConnected}
+                    />
+                  </div>
+                </header>
+
+                {/* Status Bar */}
+                <div className="border-b p-4 bg-card/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <AudioIndicator isActive={isAudioActive} />
+                    </div>
+                    <div className="flex-shrink-0 ml-4">
+                      <ConversationTimer
+                        isActive={isConnected}
+                        startTime={sessionStartTime}
+                      />
+                    </div>
+                    {!isConnected && (sessionStats.totalCost > 0 || events.length > 0) && (
+                      <div className="flex-shrink-0 ml-4">
+                        <Button onClick={resetAll} variant="outline" size="sm">
+                          Reset All
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Chat Messages - Takes remaining space */}
+                <div className="flex-1 overflow-hidden">
+                  <Card className="h-full flex flex-col">
+                    <div className="flex-1 overflow-hidden">
+                      <ConversationMessages events={events} />
+                    </div>
+
+                    {/* Chat Input */}
+                    {interactionMode === 'chat' && (
+                      <div className="border-t p-4 bg-background">
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            if (chatInput.trim() && isConnected) {
+                              sendChatMessage(chatInput);
+                              setChatInput('');
+                            }
+                          }}
+                          className="flex gap-2"
+                        >
+                          <Input
+                            value={chatInput}
+                            onChange={(e) => setChatInput(e.target.value)}
+                            placeholder={
+                              isConnected
+                                ? 'Type your message...'
+                                : 'Start a session to chat'
+                            }
+                            disabled={!isConnected}
+                            className="flex-1"
+                          />
+                          <Button
+                            type="submit"
+                            size="icon"
+                            disabled={!isConnected || !chatInput.trim()}
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        </form>
+                      </div>
+                    )}
+                  </Card>
+                </div>
               </div>
-              <div className="flex-shrink-0 ml-6">
-                <ConversationTimer isActive={isConnected} startTime={sessionStartTime} />
-              </div>
-              {!isConnected && (sessionStats.totalCost > 0 || events.length > 0) && <div className="flex-shrink-0 ml-6">
-                  <Button onClick={resetAll} variant="outline" size="sm">
-                    Reset All
-                  </Button>
-                </div>}
-            </div>
-          </Card>
+            </ResizablePanel>
 
-          <VoiceControls onStart={startSession} onStop={stopSession} isConnected={isConnected} statusMessage={statusMessage} statusType={statusType} onModelChange={setSelectedModel} onModeChange={setInteractionMode} mode={interactionMode} />
+            <ResizableHandle withHandle />
 
-          <PromptSettings onPromptChange={setBotPrompt} currentPrompt={botPrompt} />
-
-          <Card className="p-6">
-            <div className="space-y-4">
-              <Label htmlFor="search-service">Search Service</Label>
-              <Select value={searchService} onValueChange={(value: 'searchapi' | 'serpapi') => setSearchService(value)}>
-                <SelectTrigger id="search-service">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="searchapi">SearchAPI (Web only)</SelectItem>
-                  <SelectItem value="serpapi">SerpAPI (All features)</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <div className="space-y-3 pt-2">
-                <Label>Search Types (SerpAPI required for non-web)</Label>
-                
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="search-web" className="cursor-pointer">Web Search</Label>
-                  <Switch 
-                    id="search-web" 
-                    checked={searchTypes.web}
-                    onCheckedChange={(checked) => setSearchTypes(prev => ({ ...prev, web: checked }))}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="search-shopping" className="cursor-pointer">Google Shopping</Label>
-                  <Switch 
-                    id="search-shopping" 
-                    checked={searchTypes.shopping}
-                    onCheckedChange={(checked) => {
-                      if (checked && searchService !== 'serpapi') {
-                        toast({
-                          title: 'SerpAPI Required',
-                          description: 'Shopping search requires SerpAPI',
-                          variant: 'destructive'
-                        });
-                        return;
-                      }
-                      setSearchTypes(prev => ({ ...prev, shopping: checked }));
-                    }}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="search-amazon" className="cursor-pointer">Amazon Search</Label>
-                  <Switch 
-                    id="search-amazon" 
-                    checked={searchTypes.amazon}
-                    onCheckedChange={(checked) => {
-                      if (checked && searchService !== 'serpapi') {
-                        toast({
-                          title: 'SerpAPI Required',
-                          description: 'Amazon search requires SerpAPI',
-                          variant: 'destructive'
-                        });
-                        return;
-                      }
-                      setSearchTypes(prev => ({ ...prev, amazon: checked }));
-                    }}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="search-maps" className="cursor-pointer">Maps / Local Business</Label>
-                  <Switch 
-                    id="search-maps" 
-                    checked={searchTypes.maps}
-                    onCheckedChange={(checked) => {
-                      if (checked && searchService !== 'serpapi') {
-                        toast({
-                          title: 'SerpAPI Required',
-                          description: 'Maps search requires SerpAPI',
-                          variant: 'destructive'
-                        });
-                        return;
-                      }
-                      setSearchTypes(prev => ({ ...prev, maps: checked }));
-                    }}
-                  />
-                </div>
-              </div>
-              
-              <p className="text-sm text-muted-foreground">
-                Enable multiple search types to get comprehensive results. Shopping, Amazon, and Maps require SerpAPI.
-              </p>
-            </div>
-          </Card>
-
-          <KnowledgeBaseSelector value={knowledgeBaseId} onChange={setKnowledgeBaseId} />
-          
-          {/* Step 1: Sentiment Detection Display */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="adaptive-tone" className="text-base font-semibold">
-                Adaptive Tone
-              </Label>
-              <Switch 
-                id="adaptive-tone" 
-                checked={adaptiveTone}
-                onCheckedChange={setAdaptiveTone}
+            {/* Right Panel - Analytics */}
+            <ResizablePanel defaultSize={40} minSize={30}>
+              <AnalyticsPanel
+                currentStats={currentStats}
+                sessionStats={sessionStats}
+                tokenDataPoints={tokenDataPoints}
+                sessionStartTime={sessionStartTime}
+                isActive={isConnected}
+                totalInputTokens={
+                  sessionStats.audioInputTokens +
+                  sessionStats.textInputTokens +
+                  sessionStats.cachedInputTokens
+                }
+                totalOutputTokens={
+                  sessionStats.audioOutputTokens + sessionStats.textOutputTokens
+                }
+                timelineSegments={timelineSegments}
+                events={events}
               />
-            </div>
-            {adaptiveTone && (
-              <p className="text-sm text-muted-foreground">
-                The AI will automatically adjust its tone based on the detected sentiment of the conversation.
-              </p>
-            )}
-            <SentimentIndicator sentiment={currentSentiment} />
-          </div>
-
-          <PricingSettings onPricingChange={setPricingConfig} selectedModel={selectedModel} />
-
-          <div className="grid lg:grid-cols-1 gap-6">
-            <StatsDisplay title="Most Recent Interaction" stats={currentStats} />
-            <StatsDisplay title="Session Total" stats={sessionStats} />
-          </div>
-
-          <div className="text-sm text-muted-foreground italic">
-            Note: Cost calculations are estimates based on published rates and may not be 100% accurate.
-          </div>
-
-          <TokenDashboard dataPoints={tokenDataPoints} sessionStartTime={sessionStartTime} isActive={isConnected} totalInputTokens={sessionStats.audioInputTokens + sessionStats.textInputTokens + sessionStats.cachedInputTokens} totalOutputTokens={sessionStats.audioOutputTokens + sessionStats.textOutputTokens} />
-
-          <ConversationTimeline segments={timelineSegments} sessionStartTime={sessionStartTime} />
-
-          <Card>
-            <ConversationMessages events={events} />
-            
-            {interactionMode === 'chat' && <div className="border-t p-4 bg-background">
-                <form onSubmit={e => {
-              e.preventDefault();
-              if (chatInput.trim() && isConnected) {
-                sendChatMessage(chatInput);
-                setChatInput('');
-              }
-            }} className="flex gap-2">
-                  <Input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder={isConnected ? "Type your message..." : "Start a session to chat"} disabled={!isConnected} className="flex-1" />
-                  <Button type="submit" size="icon" disabled={!isConnected || !chatInput.trim()}>
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </form>
-              </div>}
-          </Card>
-
-          <EventLog events={events} />
-        </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </SidebarInset>
       </div>
-    </div>;
+    </SidebarProvider>
+  );
 }
