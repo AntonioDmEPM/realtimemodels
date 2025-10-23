@@ -484,6 +484,18 @@ export default function Index() {
         if (data.requires_tool && data.tool_name === 'web_search' && data.tool_arguments) {
           console.log('AI requested web search:', data.tool_arguments);
           
+          // Get the tool call ID from the response
+          const toolCallId = data.choices[0]?.message?.tool_calls?.[0]?.id;
+          if (!toolCallId) {
+            console.error('No tool_call_id found in response');
+            toast({
+              title: 'Error',
+              description: 'Invalid tool call response',
+              variant: 'destructive'
+            });
+            return;
+          }
+          
           // Perform the web search
           const { data: searchData, error: searchError } = await supabase.functions.invoke('web-search', {
             body: { query: data.tool_arguments.query }
@@ -500,20 +512,31 @@ export default function Index() {
           }
 
           // Format search results for the AI
-          const searchContext = `Web Search Results for "${searchData.query}":\n\n` +
+          const searchResults = `Web Search Results for "${searchData.query}":\n\n` +
             (searchData.answer_box ? `Direct Answer: ${searchData.answer_box.answer}\n\n` : '') +
             searchData.results.map((r: any, i: number) => 
               `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.link}`
             ).join('\n\n');
 
-          // Send search results back to AI
+          // Send search results back to AI using proper tool calling format
           const { data: finalData, error: finalError } = await supabase.functions.invoke('chat-completion', {
             body: {
               messages: [
                 { role: 'system', content: botPrompt },
                 ...chatMessages,
                 userMessage,
-                { role: 'system', content: `[Web Search Results]\n${searchContext}` }
+                // Include the assistant's message with the tool call
+                { 
+                  role: 'assistant', 
+                  content: '',
+                  tool_calls: data.choices[0].message.tool_calls
+                },
+                // Add the tool result
+                {
+                  role: 'tool',
+                  tool_call_id: toolCallId,
+                  content: searchResults
+                }
               ],
               model: selectedModel,
               knowledgeBaseId: knowledgeBaseId

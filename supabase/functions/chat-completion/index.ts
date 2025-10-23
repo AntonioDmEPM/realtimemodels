@@ -87,6 +87,21 @@ serve(async (req) => {
     
     // Validate each message
     for (const msg of messages) {
+      // Skip validation for assistant messages with tool_calls (no content required)
+      if (msg.role === 'assistant' && msg.tool_calls) {
+        continue;
+      }
+      // Skip validation for tool messages (content will be validated separately)
+      if (msg.role === 'tool') {
+        if (!msg.content || typeof msg.content !== 'string') {
+          throw new Error('Tool message must have string content');
+        }
+        if (!msg.tool_call_id) {
+          throw new Error('Tool message must have tool_call_id');
+        }
+        continue;
+      }
+      // Regular message validation
       if (!msg.content || typeof msg.content !== 'string') {
         throw new Error('Invalid message format');
       }
