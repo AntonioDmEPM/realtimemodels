@@ -82,6 +82,12 @@ export default function Index() {
     content: string;
   }>>([]);
   const [searchService, setSearchService] = useState<'searchapi' | 'serpapi'>('searchapi');
+  const [searchTypes, setSearchTypes] = useState({
+    web: true,
+    shopping: false,
+    amazon: false,
+    maps: false
+  });
 
   // Authentication check
   useEffect(() => {
@@ -497,16 +503,39 @@ export default function Index() {
             return;
           }
           
-          // Perform the web search
-          const { data: searchData, error: searchError } = await supabase.functions.invoke('web-search', {
-            body: { 
-              query: data.tool_arguments.query,
-              service: searchService
+          // Determine which search types to use
+          const enabledSearchTypes = Object.entries(searchTypes)
+            .filter(([_, enabled]) => enabled)
+            .map(([type]) => type);
+          
+          // If no search type enabled or only shopping/amazon/maps, fallback to web
+          const activeSearchTypes = enabledSearchTypes.length === 0 ? ['web'] : enabledSearchTypes;
+          
+          // Perform searches for all enabled types
+          const searchPromises = activeSearchTypes.map(async (searchType) => {
+            // SearchAPI only supports web search
+            const serviceToUse = searchType === 'web' ? searchService : 'serpapi';
+            
+            const { data: searchData, error: searchError } = await supabase.functions.invoke('web-search', {
+              body: { 
+                query: data.tool_arguments.query,
+                service: serviceToUse,
+                searchType: searchType
+              }
+            });
+
+            if (searchError) {
+              console.error(`${searchType} search error:`, searchError);
+              return null;
             }
+            
+            return { type: searchType, data: searchData };
           });
 
-          if (searchError) {
-            console.error('Search error:', searchError);
+          const searchResults = await Promise.all(searchPromises);
+          const validResults = searchResults.filter(r => r !== null);
+
+          if (validResults.length === 0) {
             toast({
               title: 'Search Failed',
               description: 'Failed to perform web search',
@@ -515,12 +544,34 @@ export default function Index() {
             return;
           }
 
-          // Format search results for the AI
-          const searchResults = `Web Search Results (via ${searchData.service}) for "${searchData.query}":\n\n` +
-            (searchData.answer_box ? `Direct Answer: ${searchData.answer_box.answer}\n\n` : '') +
-            searchData.results.map((r: any, i: number) => 
-              `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.link}`
-            ).join('\n\n');
+          // Format all search results
+          let formattedResults = '';
+          
+          for (const result of validResults) {
+            if (!result) continue;
+            
+            const { type, data: searchData } = result;
+            
+            if (type === 'web') {
+              formattedResults += `\n\n## Web Search Results (via ${searchData.service}):\n`;
+              if (searchData.answer_box) {
+                formattedResults += `**Direct Answer:** ${searchData.answer_box.answer}\n\n`;
+              }
+              formattedResults += searchData.results?.map((r: any, i: number) => 
+                `${i + 1}. **${r.title}**\n   ${r.snippet}\n   Link: ${r.link}`
+              ).join('\n\n') || '';
+            } else if (type === 'shopping' || type === 'amazon') {
+              formattedResults += `\n\n## ${type === 'shopping' ? 'Google Shopping' : 'Amazon'} Results:\n`;
+              formattedResults += searchData.shopping_results?.map((item: any, i: number) => 
+                `${i + 1}. **${item.title}**\n   Price: ${item.price || 'N/A'}\n   Rating: ${item.rating || 'N/A'} (${item.reviews || 0} reviews)\n   ${item.source ? `Source: ${item.source}\n   ` : ''}Link: ${item.link}`
+              ).join('\n\n') || '';
+            } else if (type === 'maps') {
+              formattedResults += `\n\n## Local Business Results:\n`;
+              formattedResults += searchData.local_results?.map((place: any, i: number) => 
+                `${i + 1}. **${place.title}**\n   ${place.address || 'Address not available'}\n   ${place.phone ? `Phone: ${place.phone}\n   ` : ''}Rating: ${place.rating || 'N/A'} (${place.reviews || 0} reviews)\n   ${place.type ? `Type: ${place.type}\n   ` : ''}${place.website ? `Website: ${place.website}` : ''}`
+              ).join('\n\n') || '';
+            }
+          }
 
           // Send search results back to AI using proper tool calling format
           const { data: finalData, error: finalError } = await supabase.functions.invoke('chat-completion', {
@@ -539,7 +590,7 @@ export default function Index() {
                 {
                   role: 'tool',
                   tool_call_id: toolCallId,
-                  content: searchResults
+                  content: formattedResults
                 }
               ],
               model: selectedModel,
@@ -744,12 +795,83 @@ export default function Index() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="searchapi">SearchAPI</SelectItem>
-                  <SelectItem value="serpapi">SerpAPI</SelectItem>
+                  <SelectItem value="searchapi">SearchAPI (Web only)</SelectItem>
+                  <SelectItem value="serpapi">SerpAPI (All features)</SelectItem>
                 </SelectContent>
               </Select>
+              
+              <div className="space-y-3 pt-2">
+                <Label>Search Types (SerpAPI required for non-web)</Label>
+                
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="search-web" className="cursor-pointer">Web Search</Label>
+                  <Switch 
+                    id="search-web" 
+                    checked={searchTypes.web}
+                    onCheckedChange={(checked) => setSearchTypes(prev => ({ ...prev, web: checked }))}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="search-shopping" className="cursor-pointer">Google Shopping</Label>
+                  <Switch 
+                    id="search-shopping" 
+                    checked={searchTypes.shopping}
+                    onCheckedChange={(checked) => {
+                      if (checked && searchService !== 'serpapi') {
+                        toast({
+                          title: 'SerpAPI Required',
+                          description: 'Shopping search requires SerpAPI',
+                          variant: 'destructive'
+                        });
+                        return;
+                      }
+                      setSearchTypes(prev => ({ ...prev, shopping: checked }));
+                    }}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="search-amazon" className="cursor-pointer">Amazon Search</Label>
+                  <Switch 
+                    id="search-amazon" 
+                    checked={searchTypes.amazon}
+                    onCheckedChange={(checked) => {
+                      if (checked && searchService !== 'serpapi') {
+                        toast({
+                          title: 'SerpAPI Required',
+                          description: 'Amazon search requires SerpAPI',
+                          variant: 'destructive'
+                        });
+                        return;
+                      }
+                      setSearchTypes(prev => ({ ...prev, amazon: checked }));
+                    }}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="search-maps" className="cursor-pointer">Maps / Local Business</Label>
+                  <Switch 
+                    id="search-maps" 
+                    checked={searchTypes.maps}
+                    onCheckedChange={(checked) => {
+                      if (checked && searchService !== 'serpapi') {
+                        toast({
+                          title: 'SerpAPI Required',
+                          description: 'Maps search requires SerpAPI',
+                          variant: 'destructive'
+                        });
+                        return;
+                      }
+                      setSearchTypes(prev => ({ ...prev, maps: checked }));
+                    }}
+                  />
+                </div>
+              </div>
+              
               <p className="text-sm text-muted-foreground">
-                Choose which search service the AI should use for web searches
+                Enable multiple search types to get comprehensive results. Shopping, Amazon, and Maps require SerpAPI.
               </p>
             </div>
           </Card>

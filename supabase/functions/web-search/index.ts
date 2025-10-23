@@ -15,8 +15,9 @@ serve(async (req) => {
     const SEARCHAPI_TOKEN = Deno.env.get('SERPAPI_API_KEY');
     const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
     
-    const { query, service = 'searchapi' } = await req.json();
+    const { query, service = 'searchapi', searchType = 'web' } = await req.json();
     console.log('Using search service:', service);
+    console.log('Search type:', searchType);
     console.log('SearchAPI Token present:', !!SEARCHAPI_TOKEN);
     console.log('SerpAPI Key present:', !!SERPAPI_KEY);
     
@@ -38,20 +39,35 @@ serve(async (req) => {
       );
     }
 
-    console.log('Performing web search for:', query);
+    console.log('Performing search for:', query);
 
     let response;
     let data;
 
     if (service === 'serpapi') {
-      // Call SerpAPI
+      // Call SerpAPI with specialized search types
       const searchUrl = new URL('https://serpapi.com/search');
-      searchUrl.searchParams.append('engine', 'google');
-      searchUrl.searchParams.append('q', query);
+      
+      // Configure engine based on search type
+      if (searchType === 'shopping') {
+        searchUrl.searchParams.append('engine', 'google_shopping');
+        searchUrl.searchParams.append('q', query);
+      } else if (searchType === 'amazon') {
+        searchUrl.searchParams.append('engine', 'amazon');
+        searchUrl.searchParams.append('search_query', query);
+      } else if (searchType === 'maps') {
+        searchUrl.searchParams.append('engine', 'google_maps');
+        searchUrl.searchParams.append('q', query);
+        searchUrl.searchParams.append('type', 'search');
+      } else {
+        searchUrl.searchParams.append('engine', 'google');
+        searchUrl.searchParams.append('q', query);
+        searchUrl.searchParams.append('num', '5');
+      }
+      
       searchUrl.searchParams.append('api_key', SERPAPI_KEY!);
-      searchUrl.searchParams.append('num', '5');
 
-      console.log('Calling SerpAPI');
+      console.log('Calling SerpAPI with type:', searchType);
 
       response = await fetch(searchUrl.toString());
       
@@ -66,7 +82,11 @@ serve(async (req) => {
       data = await response.json();
       console.log('SerpAPI response received');
     } else {
-      // Call SearchAPI
+      // Call SearchAPI - only supports web search
+      if (searchType !== 'web') {
+        throw new Error(`SearchAPI only supports web search. Please use SerpAPI for ${searchType} searches.`);
+      }
+      
       const searchUrl = new URL('https://www.searchapi.io/api/v1/search');
       searchUrl.searchParams.append('engine', 'google');
       searchUrl.searchParams.append('q', query);
@@ -93,20 +113,58 @@ serve(async (req) => {
       console.log('SearchAPI response received');
     }
 
-    // Extract relevant information (both APIs have similar structure)
-    const results = {
+    // Extract relevant information based on search type
+    let results: any = {
       query: query,
       service: service,
-      results: (data.organic_results || []).map((result: any) => ({
+      searchType: searchType
+    };
+
+    if (searchType === 'shopping') {
+      // Extract shopping results
+      results.shopping_results = (data.shopping_results || []).slice(0, 5).map((item: any) => ({
+        title: item.title,
+        link: item.link,
+        price: item.price,
+        rating: item.rating,
+        reviews: item.reviews,
+        source: item.source,
+        thumbnail: item.thumbnail
+      }));
+    } else if (searchType === 'amazon') {
+      // Extract Amazon results
+      results.shopping_results = (data.search_results || []).slice(0, 5).map((item: any) => ({
+        title: item.title,
+        link: item.link,
+        price: item.price,
+        rating: item.rating,
+        reviews: item.reviews_count,
+        thumbnail: item.thumbnail
+      }));
+    } else if (searchType === 'maps') {
+      // Extract local business results
+      results.local_results = (data.local_results || []).slice(0, 5).map((place: any) => ({
+        title: place.title,
+        address: place.address,
+        phone: place.phone,
+        rating: place.rating,
+        reviews: place.reviews,
+        type: place.type,
+        hours: place.hours,
+        website: place.website
+      }));
+    } else {
+      // Standard web results
+      results.results = (data.organic_results || []).map((result: any) => ({
         title: result.title,
         link: result.link,
         snippet: result.snippet || result.description
-      })),
-      answer_box: data.answer_box ? {
+      }));
+      results.answer_box = data.answer_box ? {
         answer: data.answer_box.answer || data.answer_box.snippet,
         title: data.answer_box.title
-      } : null
-    };
+      } : null;
+    }
 
     return new Response(
       JSON.stringify(results), 
