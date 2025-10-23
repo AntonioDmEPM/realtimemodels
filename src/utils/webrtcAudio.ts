@@ -176,20 +176,69 @@ export async function createRealtimeSession(
             timestamp: new Date().toISOString()
           });
           
-          // Send acknowledgment back to AI (in real implementation, you would actually perform the search)
-          const functionOutput = {
-            type: 'conversation.item.create',
-            item: {
-              type: 'function_call_output',
+          // Call the web-search edge function
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/web-search`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              query: args.query
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            console.log('Web search results:', data.results);
+            
+            // Store the search results in an event for display
+            onMessage({
+              type: 'web_search.results',
               call_id: callId,
-              output: JSON.stringify({
-                message: 'Web search tool is configured but requires implementation. Please ask the user to implement actual web search functionality.'
-              })
-            }
-          };
-          
-          dc.send(JSON.stringify(functionOutput));
-          dc.send(JSON.stringify({ type: 'response.create' }));
+              query: args.query,
+              results: data.results || [],
+              answer_box: data.answer_box || null,
+              timestamp: new Date().toISOString()
+            });
+            
+            // Format search results for the AI
+            const searchContext = `Web Search Results for "${data.query}":\n\n` +
+              (data.answer_box ? `Direct Answer: ${data.answer_box.answer}\n\n` : '') +
+              (data.results || []).map((r: any, i: number) => 
+                `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.link}`
+              ).join('\n\n');
+            
+            // Send the search results back to the AI
+            const functionOutput = {
+              type: 'conversation.item.create',
+              item: {
+                type: 'function_call_output',
+                call_id: callId,
+                output: searchContext
+              }
+            };
+            
+            dc.send(JSON.stringify(functionOutput));
+            
+            // Trigger AI to generate a response with the search results
+            dc.send(JSON.stringify({ type: 'response.create' }));
+          })
+          .catch(err => {
+            console.error('Error performing web search:', err);
+            
+            // Send error back to AI
+            const functionOutput = {
+              type: 'conversation.item.create',
+              item: {
+                type: 'function_call_output',
+                call_id: callId,
+                output: JSON.stringify({ error: 'Failed to perform web search' })
+              }
+            };
+            
+            dc.send(JSON.stringify(functionOutput));
+            dc.send(JSON.stringify({ type: 'response.create' }));
+          });
         } else if (functionName === 'search_knowledge_base' && knowledgeBaseId) {
           console.log('AI requesting knowledge base search:', args.query);
           

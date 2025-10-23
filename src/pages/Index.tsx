@@ -479,6 +479,101 @@ export default function Index() {
           }
         });
         if (error) throw error;
+        
+        // Check if AI is requesting a tool call (web search)
+        if (data.requires_tool && data.tool_name === 'web_search' && data.tool_arguments) {
+          console.log('AI requested web search:', data.tool_arguments);
+          
+          // Perform the web search
+          const { data: searchData, error: searchError } = await supabase.functions.invoke('web-search', {
+            body: { query: data.tool_arguments.query }
+          });
+
+          if (searchError) {
+            console.error('Search error:', searchError);
+            toast({
+              title: 'Search Failed',
+              description: 'Failed to perform web search',
+              variant: 'destructive'
+            });
+            return;
+          }
+
+          // Format search results for the AI
+          const searchContext = `Web Search Results for "${searchData.query}":\n\n` +
+            (searchData.answer_box ? `Direct Answer: ${searchData.answer_box.answer}\n\n` : '') +
+            searchData.results.map((r: any, i: number) => 
+              `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.link}`
+            ).join('\n\n');
+
+          // Send search results back to AI
+          const { data: finalData, error: finalError } = await supabase.functions.invoke('chat-completion', {
+            body: {
+              messages: [
+                { role: 'system', content: botPrompt },
+                ...chatMessages,
+                userMessage,
+                { role: 'system', content: `[Web Search Results]\n${searchContext}` }
+              ],
+              model: selectedModel,
+              knowledgeBaseId: knowledgeBaseId
+            }
+          });
+
+          if (finalError) throw finalError;
+
+          const finalMessage = finalData.choices[0]?.message?.content;
+          if (finalMessage) {
+            setChatMessages(prev => [...prev, {
+              role: 'assistant',
+              content: finalMessage
+            }]);
+
+            addEvent({
+              type: 'response.done',
+              response: {
+                output: [{
+                  type: 'message',
+                  role: 'assistant',
+                  content: [{
+                    type: 'text',
+                    text: finalMessage
+                  }]
+                }],
+                usage: finalData.usage
+              }
+            });
+
+            if (finalData.usage) {
+              const usage = finalData.usage;
+              const newStats = {
+                audioInputTokens: 0,
+                textInputTokens: usage.prompt_tokens || 0,
+                cachedInputTokens: 0,
+                audioOutputTokens: 0,
+                textOutputTokens: usage.completion_tokens || 0
+              };
+              const costs = calculateCosts(newStats, pricingConfig);
+              const fullStats = {
+                ...newStats,
+                ...costs
+              };
+              setCurrentStats(fullStats);
+              setSessionStats(prev => ({
+                audioInputTokens: prev.audioInputTokens,
+                textInputTokens: prev.textInputTokens + newStats.textInputTokens,
+                cachedInputTokens: prev.cachedInputTokens,
+                audioOutputTokens: prev.audioOutputTokens,
+                textOutputTokens: prev.textOutputTokens + newStats.textOutputTokens,
+                inputCost: prev.inputCost + costs.inputCost,
+                outputCost: prev.outputCost + costs.outputCost,
+                totalCost: prev.totalCost + costs.totalCost
+              }));
+            }
+          }
+          return;
+        }
+
         const assistantMessage = data.choices[0]?.message?.content;
         if (assistantMessage) {
           // Add assistant message to chat

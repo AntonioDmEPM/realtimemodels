@@ -11,3 +11,6 @@ verify_jwt = true
 
 [functions.search-knowledge]
 verify_jwt = true
+
+[functions.web-search]
+verify_jwt = true
