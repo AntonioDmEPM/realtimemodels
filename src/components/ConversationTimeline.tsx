@@ -1,6 +1,6 @@
 import { Card } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LineChart, Line, ComposedChart } from 'recharts';
-import { Activity } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LineChart, Line, ComposedChart, AreaChart, Area } from 'recharts';
+import { Activity, Heart } from 'lucide-react';
 export interface TimelineSegment {
   start: number;
   end: number;
@@ -8,6 +8,10 @@ export interface TimelineSegment {
   duration: number;
   inputTokens?: number;
   outputTokens?: number;
+  sentiment?: {
+    sentiment: 'positive' | 'neutral' | 'negative' | 'mixed';
+    confidence: number;
+  };
 }
 interface ConversationTimelineProps {
   segments: TimelineSegment[];
@@ -27,9 +31,15 @@ export default function ConversationTimeline({
     speaker: segment.speaker,
     inputTokens: segment.inputTokens || 0,
     outputTokens: segment.outputTokens || 0,
-    totalTokens: (segment.inputTokens || 0) + (segment.outputTokens || 0)
+    totalTokens: (segment.inputTokens || 0) + (segment.outputTokens || 0),
+    sentiment: segment.sentiment?.sentiment || 'neutral',
+    sentimentScore: segment.sentiment ? 
+      (segment.sentiment.sentiment === 'positive' ? 1 : 
+       segment.sentiment.sentiment === 'negative' ? -1 : 
+       segment.sentiment.sentiment === 'mixed' ? 0 : 0) * segment.sentiment.confidence : 0
   }));
   const hasTokenData = segments.some(s => s.inputTokens !== undefined || s.outputTokens !== undefined);
+  const hasSentimentData = segments.some(s => s.sentiment !== undefined);
   const CustomTooltip = ({
     active,
     payload
@@ -46,6 +56,18 @@ export default function ConversationTimeline({
           <p className="text-sm text-muted-foreground">
             Duration: {data.duration.toFixed(1)}s
           </p>
+          {hasSentimentData && data.sentiment !== 'neutral' && (
+            <div className="border-t border-border mt-2 pt-2">
+              <p className="text-sm capitalize">
+                Sentiment: <span className={
+                  data.sentiment === 'positive' ? 'text-green-500' :
+                  data.sentiment === 'negative' ? 'text-red-500' :
+                  data.sentiment === 'mixed' ? 'text-yellow-500' :
+                  'text-muted-foreground'
+                }>{data.sentiment}</span>
+              </p>
+            </div>
+          )}
           {hasTokenData && <>
               <div className="border-t border-border mt-2 pt-2">
                 <p className="text-sm">
@@ -97,6 +119,58 @@ export default function ConversationTimeline({
           </BarChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Sentiment Over Time Chart */}
+      {hasSentimentData && <div className="mb-8">
+          <h3 className="text-sm font-semibold mb-3 text-muted-foreground flex items-center gap-2">
+            <Heart className="h-4 w-4" />
+            Sentiment Evolution
+          </h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={chartData} margin={{
+          top: 20,
+          right: 30,
+          left: 20,
+          bottom: 5
+        }}>
+              <defs>
+                <linearGradient id="colorSentiment" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.1}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" opacity={0.3} />
+              <XAxis dataKey="start" label={{
+            value: 'Time (seconds)',
+            position: 'insideBottom',
+            offset: -5
+          }} className="text-xs" />
+              <YAxis domain={[-1, 1]} ticks={[-1, -0.5, 0, 0.5, 1]} 
+                label={{
+                  value: 'Sentiment',
+                  angle: -90,
+                  position: 'insideLeft'
+                }} 
+                className="text-xs"
+                tickFormatter={(value) => 
+                  value === 1 ? 'Positive' :
+                  value === -1 ? 'Negative' :
+                  value === 0 ? 'Neutral' :
+                  ''
+                }
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Area 
+                type="monotone" 
+                dataKey="sentimentScore" 
+                stroke="hsl(var(--chart-1))" 
+                fillOpacity={1} 
+                fill="url(#colorSentiment)"
+                name="Sentiment"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>}
 
       {/* Token Usage Chart */}
       {hasTokenData && <div>

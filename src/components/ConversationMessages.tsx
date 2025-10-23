@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { User, Bot } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 
 interface EventEntry {
   timestamp: string;
@@ -22,6 +23,11 @@ interface Message {
     content: string;
     metadata?: any;
   }>;
+  sentiment?: {
+    sentiment: 'positive' | 'neutral' | 'negative' | 'mixed';
+    confidence: number;
+    reason?: string;
+  };
 }
 
 export default function ConversationMessages({ events }: ConversationMessagesProps) {
@@ -33,6 +39,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
     const processedResponseIds = new Set<string>(); // Track processed response IDs to avoid duplicates
     const knowledgeResultsMap = new Map<string, any[]>(); // call_id -> knowledge results
     const pendingKnowledge: any[] = []; // Store knowledge results until next assistant message
+    let pendingSentiment: any = null; // Store sentiment for the next user message
 
     console.log('Extracting messages from events:', events.length);
 
@@ -42,6 +49,16 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
       // Log first few events for debugging
       if (index < 5) {
         console.log('Event type:', eventType, 'Data:', event.data);
+      }
+
+      // Capture sentiment detection events
+      if (eventType === 'sentiment.detected') {
+        console.log('Found sentiment detection:', event.data);
+        pendingSentiment = {
+          sentiment: event.data.sentiment,
+          confidence: event.data.confidence,
+          reason: event.data.reason
+        };
       }
 
       // Capture knowledge base search results
@@ -58,7 +75,9 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
           role: 'user',
           content: event.data.transcript || '[Audio input]',
           timestamp: event.timestamp,
+          sentiment: pendingSentiment,
         });
+        pendingSentiment = null; // Clear after use
       }
 
       // Accumulate text deltas for text-mode responses
@@ -154,14 +173,18 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                 role: 'user',
                 content: content.text,
                 timestamp: event.timestamp,
+                sentiment: pendingSentiment,
               });
+              pendingSentiment = null; // Clear after use
             } else if (content.type === 'input_audio' && content.transcript) {
               messages.push({
                 id: `msg-${messageIdCounter++}`,
                 role: 'user',
                 content: content.transcript,
                 timestamp: event.timestamp,
+                sentiment: pendingSentiment,
               });
+              pendingSentiment = null; // Clear after use
             }
           }
         }
@@ -226,6 +249,19 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                         message.role === 'user' ? 'items-end' : 'items-start'
                       }`}
                     >
+                      {message.sentiment && message.role === 'user' && (
+                        <Badge 
+                          variant={
+                            message.sentiment.sentiment === 'positive' ? 'default' :
+                            message.sentiment.sentiment === 'negative' ? 'destructive' :
+                            message.sentiment.sentiment === 'mixed' ? 'outline' :
+                            'secondary'
+                          }
+                          className="text-xs px-2 py-0.5"
+                        >
+                          {message.sentiment.sentiment} ({Math.round(message.sentiment.confidence * 100)}%)
+                        </Badge>
+                      )}
                       {message.knowledge && message.knowledge.length > 0 ? (
                         <Tooltip>
                           <TooltipTrigger asChild>

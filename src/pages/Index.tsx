@@ -173,7 +173,11 @@ export default function Index() {
           start: currentSegment.start,
           end,
           duration: end - currentSegment.start,
-          speaker: 'user'
+          speaker: 'user',
+          sentiment: currentSentiment ? {
+            sentiment: currentSentiment.sentiment,
+            confidence: currentSentiment.confidence
+          } : undefined
         }]);
         setCurrentSegment(null);
       }
