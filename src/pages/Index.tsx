@@ -312,7 +312,7 @@ export default function Index() {
         const {
           pc,
           dc
-        } = await createRealtimeSession(stream, token, voice, model, botPrompt, handleMessage, knowledgeBaseId || undefined, false);
+        } = await createRealtimeSession(stream, token, voice, model, botPrompt, handleMessage, session?.access_token || '', knowledgeBaseId || undefined, false);
         setPeerConnection(pc);
         setDataChannel(dc);
         const startTime = Date.now();

@@ -63,6 +63,7 @@ export async function createRealtimeSession(
   model: string,
   instructions: string,
   onMessage: (data: any) => void,
+  supabaseToken: string,
   knowledgeBaseId?: string,
   textOnly: boolean = false
 ): Promise<{ pc: RTCPeerConnection; dc: RTCDataChannel }> {
@@ -181,7 +182,7 @@ export async function createRealtimeSession(
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${supabaseToken}`
             },
             body: JSON.stringify({
               query: args.query
@@ -247,7 +248,7 @@ export async function createRealtimeSession(
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${supabaseToken}`
             },
             body: JSON.stringify({
               query: args.query,
