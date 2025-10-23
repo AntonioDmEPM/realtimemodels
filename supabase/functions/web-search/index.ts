@@ -13,6 +13,9 @@ serve(async (req) => {
 
   try {
     const SERPAPI_API_KEY = Deno.env.get('SERPAPI_API_KEY');
+    console.log('API Key present:', !!SERPAPI_API_KEY);
+    console.log('API Key length:', SERPAPI_API_KEY?.length || 0);
+    
     if (!SERPAPI_API_KEY) {
       throw new Error('SERPAPI_API_KEY is not configured');
     }
@@ -38,10 +41,17 @@ serve(async (req) => {
     searchUrl.searchParams.append('engine', 'google');
     searchUrl.searchParams.append('num', '5'); // Get top 5 results
 
+    console.log('Calling SerpAPI URL:', searchUrl.toString().replace(SERPAPI_API_KEY, 'API_KEY_HIDDEN'));
+
     const response = await fetch(searchUrl.toString());
     
+    console.log('SerpAPI response status:', response.status);
+    console.log('SerpAPI response statusText:', response.statusText);
+    
     if (!response.ok) {
-      throw new Error(`SerpAPI error: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('SerpAPI error response:', errorText);
+      throw new Error(`SerpAPI error: ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
