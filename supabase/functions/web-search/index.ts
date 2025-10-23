@@ -12,14 +12,21 @@ serve(async (req) => {
   }
 
   try {
-    const SEARCHAPI_TOKEN = Deno.env.get('SERPAPI_API_KEY'); // Using same env var for now
-    console.log('API Token present:', !!SEARCHAPI_TOKEN);
+    const SEARCHAPI_TOKEN = Deno.env.get('SERPAPI_API_KEY');
+    const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
     
-    if (!SEARCHAPI_TOKEN) {
-      throw new Error('SEARCHAPI_TOKEN is not configured');
+    const { query, service = 'searchapi' } = await req.json();
+    console.log('Using search service:', service);
+    console.log('SearchAPI Token present:', !!SEARCHAPI_TOKEN);
+    console.log('SerpAPI Key present:', !!SERPAPI_KEY);
+    
+    if (service === 'searchapi' && !SEARCHAPI_TOKEN) {
+      throw new Error('SearchAPI token is not configured');
     }
-
-    const { query } = await req.json();
+    
+    if (service === 'serpapi' && !SERPAPI_KEY) {
+      throw new Error('SerpAPI key is not configured');
+    }
     
     if (!query) {
       return new Response(
@@ -33,35 +40,63 @@ serve(async (req) => {
 
     console.log('Performing web search for:', query);
 
-    // Call SearchAPI
-    const searchUrl = new URL('https://www.searchapi.io/api/v1/search');
-    searchUrl.searchParams.append('engine', 'google');
-    searchUrl.searchParams.append('q', query);
-    searchUrl.searchParams.append('num', '5'); // Get top 5 results
+    let response;
+    let data;
 
-    console.log('Calling SearchAPI');
+    if (service === 'serpapi') {
+      // Call SerpAPI
+      const searchUrl = new URL('https://serpapi.com/search');
+      searchUrl.searchParams.append('engine', 'google');
+      searchUrl.searchParams.append('q', query);
+      searchUrl.searchParams.append('api_key', SERPAPI_KEY!);
+      searchUrl.searchParams.append('num', '5');
 
-    const response = await fetch(searchUrl.toString(), {
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${SEARCHAPI_TOKEN}`
+      console.log('Calling SerpAPI');
+
+      response = await fetch(searchUrl.toString());
+      
+      console.log('SerpAPI response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('SerpAPI error response:', errorText);
+        throw new Error(`SerpAPI error: ${response.statusText} - ${errorText}`);
       }
-    });
-    
-    console.log('SearchAPI response status:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('SearchAPI error response:', errorText);
-      throw new Error(`SearchAPI error: ${response.statusText} - ${errorText}`);
+
+      data = await response.json();
+      console.log('SerpAPI response received');
+    } else {
+      // Call SearchAPI
+      const searchUrl = new URL('https://www.searchapi.io/api/v1/search');
+      searchUrl.searchParams.append('engine', 'google');
+      searchUrl.searchParams.append('q', query);
+      searchUrl.searchParams.append('num', '5');
+
+      console.log('Calling SearchAPI');
+
+      response = await fetch(searchUrl.toString(), {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${SEARCHAPI_TOKEN!}`
+        }
+      });
+      
+      console.log('SearchAPI response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('SearchAPI error response:', errorText);
+        throw new Error(`SearchAPI error: ${response.statusText} - ${errorText}`);
+      }
+
+      data = await response.json();
+      console.log('SearchAPI response received');
     }
 
-    const data = await response.json();
-    console.log('SearchAPI response received');
-
-    // Extract relevant information from SearchAPI format
+    // Extract relevant information (both APIs have similar structure)
     const results = {
       query: query,
+      service: service,
       results: (data.organic_results || []).map((result: any) => ({
         title: result.title,
         link: result.link,

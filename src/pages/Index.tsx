@@ -81,6 +81,7 @@ export default function Index() {
     role: 'user' | 'assistant';
     content: string;
   }>>([]);
+  const [searchService, setSearchService] = useState<'searchapi' | 'serpapi'>('searchapi');
 
   // Authentication check
   useEffect(() => {
@@ -498,7 +499,10 @@ export default function Index() {
           
           // Perform the web search
           const { data: searchData, error: searchError } = await supabase.functions.invoke('web-search', {
-            body: { query: data.tool_arguments.query }
+            body: { 
+              query: data.tool_arguments.query,
+              service: searchService
+            }
           });
 
           if (searchError) {
@@ -512,7 +516,7 @@ export default function Index() {
           }
 
           // Format search results for the AI
-          const searchResults = `Web Search Results for "${searchData.query}":\n\n` +
+          const searchResults = `Web Search Results (via ${searchData.service}) for "${searchData.query}":\n\n` +
             (searchData.answer_box ? `Direct Answer: ${searchData.answer_box.answer}\n\n` : '') +
             searchData.results.map((r: any, i: number) => 
               `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.link}`
@@ -731,6 +735,24 @@ export default function Index() {
           <VoiceControls onStart={startSession} onStop={stopSession} isConnected={isConnected} statusMessage={statusMessage} statusType={statusType} onModelChange={setSelectedModel} onModeChange={setInteractionMode} mode={interactionMode} />
 
           <PromptSettings onPromptChange={setBotPrompt} currentPrompt={botPrompt} />
+
+          <Card className="p-6">
+            <div className="space-y-4">
+              <Label htmlFor="search-service">Search Service</Label>
+              <Select value={searchService} onValueChange={(value: 'searchapi' | 'serpapi') => setSearchService(value)}>
+                <SelectTrigger id="search-service">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="searchapi">SearchAPI</SelectItem>
+                  <SelectItem value="serpapi">SerpAPI</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                Choose which search service the AI should use for web searches
+              </p>
+            </div>
+          </Card>
 
           <KnowledgeBaseSelector value={knowledgeBaseId} onChange={setKnowledgeBaseId} />
 
