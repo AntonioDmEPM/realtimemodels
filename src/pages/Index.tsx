@@ -333,12 +333,28 @@ export default function Index() {
       }
     } catch (err: any) {
       setStatusType('error');
-      setStatusMessage(`Error: ${err.message}`);
+      
+      // Provide helpful error messages for common issues
+      let errorMessage = err.message;
+      let errorTitle = 'Connection Failed';
+      
+      if (err.name === 'NotAllowedError' || err.message.includes('Permission denied')) {
+        errorTitle = 'Microphone Access Denied';
+        errorMessage = 'Please allow microphone access in your browser settings and try again. You may need to click the microphone icon in your address bar.';
+      } else if (err.name === 'NotFoundError') {
+        errorTitle = 'No Microphone Found';
+        errorMessage = 'No microphone detected. Please connect a microphone and try again.';
+      } else if (err.name === 'NotReadableError') {
+        errorTitle = 'Microphone In Use';
+        errorMessage = 'Your microphone is being used by another application. Please close other apps and try again.';
+      }
+      
+      setStatusMessage(`Error: ${errorMessage}`);
       console.error('Session error:', err);
       stopSession();
       toast({
-        title: 'Connection Failed',
-        description: err.message,
+        title: errorTitle,
+        description: errorMessage,
         variant: 'destructive'
       });
     }
