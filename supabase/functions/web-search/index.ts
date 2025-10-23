@@ -12,12 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    const SERPAPI_API_KEY = Deno.env.get('SERPAPI_API_KEY');
-    console.log('API Key present:', !!SERPAPI_API_KEY);
-    console.log('API Key length:', SERPAPI_API_KEY?.length || 0);
+    const SEARCHAPI_TOKEN = Deno.env.get('SERPAPI_API_KEY'); // Using same env var for now
+    console.log('API Token present:', !!SEARCHAPI_TOKEN);
     
-    if (!SERPAPI_API_KEY) {
-      throw new Error('SERPAPI_API_KEY is not configured');
+    if (!SEARCHAPI_TOKEN) {
+      throw new Error('SEARCHAPI_TOKEN is not configured');
     }
 
     const { query } = await req.json();
@@ -34,36 +33,39 @@ serve(async (req) => {
 
     console.log('Performing web search for:', query);
 
-    // Call SerpAPI
-    const searchUrl = new URL('https://serpapi.com/search');
-    searchUrl.searchParams.append('q', query);
-    searchUrl.searchParams.append('api_key', SERPAPI_API_KEY);
+    // Call SearchAPI
+    const searchUrl = new URL('https://www.searchapi.io/api/v1/search');
     searchUrl.searchParams.append('engine', 'google');
+    searchUrl.searchParams.append('q', query);
     searchUrl.searchParams.append('num', '5'); // Get top 5 results
 
-    console.log('Calling SerpAPI URL:', searchUrl.toString().replace(SERPAPI_API_KEY, 'API_KEY_HIDDEN'));
+    console.log('Calling SearchAPI');
 
-    const response = await fetch(searchUrl.toString());
+    const response = await fetch(searchUrl.toString(), {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${SEARCHAPI_TOKEN}`
+      }
+    });
     
-    console.log('SerpAPI response status:', response.status);
-    console.log('SerpAPI response statusText:', response.statusText);
+    console.log('SearchAPI response status:', response.status);
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('SerpAPI error response:', errorText);
-      throw new Error(`SerpAPI error: ${response.statusText} - ${errorText}`);
+      console.error('SearchAPI error response:', errorText);
+      throw new Error(`SearchAPI error: ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('SerpAPI response received');
+    console.log('SearchAPI response received');
 
-    // Extract relevant information
+    // Extract relevant information from SearchAPI format
     const results = {
       query: query,
       results: (data.organic_results || []).map((result: any) => ({
         title: result.title,
         link: result.link,
-        snippet: result.snippet
+        snippet: result.snippet || result.description
       })),
       answer_box: data.answer_box ? {
         answer: data.answer_box.answer || data.answer_box.snippet,
