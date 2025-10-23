@@ -136,14 +136,14 @@ export async function createRealtimeSession(
           {
             type: 'function',
             name: 'detect_sentiment',
-            description: 'Analyze and report the current emotional tone of the conversation. Call this periodically (every 2-3 exchanges) or when you detect a significant shift in the conversation mood. This helps adapt your responses appropriately.',
+            description: 'CRITICAL: Call this function IMMEDIATELY after EVERY user message to analyze their emotional tone. This is required for tone adaptation. Analyze whether the user sounds positive, neutral, negative, or mixed.',
             parameters: {
               type: 'object',
               properties: {
                 sentiment: {
                   type: 'string',
                   enum: ['positive', 'neutral', 'negative', 'mixed'],
-                  description: 'The overall emotional sentiment detected in the recent conversation'
+                  description: 'The emotional sentiment in the user\'s last message'
                 },
                 confidence: {
                   type: 'number',
@@ -151,10 +151,10 @@ export async function createRealtimeSession(
                 },
                 reason: {
                   type: 'string',
-                  description: 'Brief explanation of why this sentiment was detected'
+                  description: 'Brief explanation (e.g., "User expressing frustration", "Enthusiastic tone", "Casual conversation")'
                 }
               },
-              required: ['sentiment', 'confidence']
+              required: ['sentiment', 'confidence', 'reason']
             }
           }
         ];
