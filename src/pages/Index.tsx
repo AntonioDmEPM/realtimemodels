@@ -933,7 +933,7 @@ export default function Index() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label htmlFor="adaptive-tone" className="text-base font-semibold">
-                Adaptive Tone (Step 2)
+                Adaptive Tone
               </Label>
               <Switch 
                 id="adaptive-tone" 
