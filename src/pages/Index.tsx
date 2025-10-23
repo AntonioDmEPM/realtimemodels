@@ -21,7 +21,9 @@ import ConversationTimeline, { TimelineSegment } from '@/components/Conversation
 import TokenDashboard, { TokenDataPoint } from '@/components/TokenDashboard';
 import ConversationMessages from '@/components/ConversationMessages';
 import HeaderMenu from '@/components/HeaderMenu';
+import SentimentIndicator from '@/components/SentimentIndicator';
 import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig } from '@/utils/webrtcAudio';
+import { updateSessionTone } from '@/utils/toneAdapter';
 import { useToast } from '@/hooks/use-toast';
 interface EventEntry {
   timestamp: string;
@@ -57,7 +59,7 @@ export default function Index() {
   const [audioVisualizer, setAudioVisualizer] = useState<AudioVisualizer | null>(null);
   const [selectedModel, setSelectedModel] = useState('gpt-4o-realtime-preview-2024-12-17');
   const [selectedVoice, setSelectedVoice] = useState('alloy');
-  const [botPrompt, setBotPrompt] = useState('You are a helpful AI assistant. Be concise and friendly in your responses.');
+  const [botPrompt, setBotPrompt] = useState('You are a helpful AI assistant. Be concise and friendly in your responses.\n\nIMPORTANT: Every 2-3 exchanges, use the detect_sentiment function to analyze the emotional tone of the conversation. This helps you adapt your responses appropriately.');
   const [knowledgeBaseId, setKnowledgeBaseId] = useState<string | undefined>(undefined);
   const [pricingConfig, setPricingConfig] = useState<PricingConfig>({
     audioInputCost: 0.00004,
@@ -88,6 +90,14 @@ export default function Index() {
     amazon: false,
     maps: false
   });
+  
+  // Sentiment and tone control states
+  const [currentSentiment, setCurrentSentiment] = useState<{
+    sentiment: 'positive' | 'neutral' | 'negative' | 'mixed';
+    confidence: number;
+    reason?: string;
+  } | null>(null);
+  const [adaptiveTone, setAdaptiveTone] = useState(true);
 
   // Authentication check
   useEffect(() => {
@@ -115,6 +125,15 @@ export default function Index() {
     });
     return () => subscription.unsubscribe();
   }, [navigate]);
+  
+  // Effect to update session tone when sentiment changes (Step 2: Tone Adaptation)
+  useEffect(() => {
+    if (isConnected && dataChannel && currentSentiment && adaptiveTone) {
+      console.log('Adapting tone based on sentiment:', currentSentiment.sentiment);
+      updateSessionTone(dataChannel, botPrompt, currentSentiment.sentiment, adaptiveTone);
+    }
+  }, [currentSentiment, adaptiveTone, dataChannel, isConnected, botPrompt]);
+  
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/auth');
@@ -129,6 +148,17 @@ export default function Index() {
   };
   const handleMessage = (eventData: UsageEvent) => {
     addEvent(eventData);
+    
+    // Handle sentiment detection events
+    if (eventData.type === 'sentiment.detected') {
+      const sentimentData = {
+        sentiment: eventData.sentiment,
+        confidence: eventData.confidence,
+        reason: eventData.reason
+      };
+      setCurrentSentiment(sentimentData);
+      console.log('Sentiment detected:', sentimentData);
+    }
 
     // Track timeline segments
     if (eventData.type === 'input_audio_buffer.speech_started') {
@@ -898,6 +928,26 @@ export default function Index() {
           </Card>
 
           <KnowledgeBaseSelector value={knowledgeBaseId} onChange={setKnowledgeBaseId} />
+          
+          {/* Step 1: Sentiment Detection Display */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="adaptive-tone" className="text-base font-semibold">
+                Adaptive Tone (Step 2)
+              </Label>
+              <Switch 
+                id="adaptive-tone" 
+                checked={adaptiveTone}
+                onCheckedChange={setAdaptiveTone}
+              />
+            </div>
+            {adaptiveTone && (
+              <p className="text-sm text-muted-foreground">
+                The AI will automatically adjust its tone based on the detected sentiment of the conversation.
+              </p>
+            )}
+            <SentimentIndicator sentiment={currentSentiment} />
+          </div>
 
           <PricingSettings onPricingChange={setPricingConfig} selectedModel={selectedModel} />
 

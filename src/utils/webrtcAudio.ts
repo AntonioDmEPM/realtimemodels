@@ -116,7 +116,7 @@ export async function createRealtimeSession(
           }
         };
 
-        // Add tools (web search and optionally knowledge base search)
+        // Add tools (web search, sentiment detection, and optionally knowledge base search)
         sessionUpdate.session.tools = [
           {
             type: 'function',
@@ -131,6 +131,30 @@ export async function createRealtimeSession(
                 }
               },
               required: ['query']
+            }
+          },
+          {
+            type: 'function',
+            name: 'detect_sentiment',
+            description: 'Analyze and report the current emotional tone of the conversation. Call this periodically (every 2-3 exchanges) or when you detect a significant shift in the conversation mood. This helps adapt your responses appropriately.',
+            parameters: {
+              type: 'object',
+              properties: {
+                sentiment: {
+                  type: 'string',
+                  enum: ['positive', 'neutral', 'negative', 'mixed'],
+                  description: 'The overall emotional sentiment detected in the recent conversation'
+                },
+                confidence: {
+                  type: 'number',
+                  description: 'Confidence level from 0 to 1'
+                },
+                reason: {
+                  type: 'string',
+                  description: 'Brief explanation of why this sentiment was detected'
+                }
+              },
+              required: ['sentiment', 'confidence']
             }
           }
         ];
@@ -315,6 +339,34 @@ export async function createRealtimeSession(
             dc.send(JSON.stringify(functionOutput));
             dc.send(JSON.stringify({ type: 'response.create' }));
           });
+        } else if (functionName === 'detect_sentiment') {
+          console.log('AI detecting sentiment:', args);
+          
+          // Store sentiment event and pass it back to the parent
+          onMessage({
+            type: 'sentiment.detected',
+            call_id: callId,
+            sentiment: args.sentiment,
+            confidence: args.confidence,
+            reason: args.reason,
+            timestamp: new Date().toISOString()
+          });
+          
+          // Acknowledge the sentiment detection
+          const functionOutput = {
+            type: 'conversation.item.create',
+            item: {
+              type: 'function_call_output',
+              call_id: callId,
+              output: JSON.stringify({ 
+                status: 'acknowledged',
+                message: 'Sentiment recorded and tone will be adapted accordingly'
+              })
+            }
+          };
+          
+          dc.send(JSON.stringify(functionOutput));
+          dc.send(JSON.stringify({ type: 'response.create' }));
         }
       }
       
