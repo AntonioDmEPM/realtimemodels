@@ -65,7 +65,8 @@ export async function createRealtimeSession(
   onMessage: (data: any) => void,
   supabaseToken: string,
   knowledgeBaseId?: string,
-  textOnly: boolean = false
+  textOnly: boolean = false,
+  realtimeSettings?: any
 ): Promise<{ pc: RTCPeerConnection; dc: RTCDataChannel }> {
   const pc = new RTCPeerConnection();
 
@@ -99,20 +100,20 @@ export async function createRealtimeSession(
           session: {
             instructions: instructions,
             voice: voice,
-            modalities: textOnly ? ['text'] : ['audio', 'text'],
+            modalities: realtimeSettings?.modalities || (textOnly ? ['text'] : ['audio', 'text']),
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
-            input_audio_transcription: textOnly ? null : {
-              model: 'whisper-1'
-            },
-            turn_detection: textOnly ? null : {
+            input_audio_transcription: realtimeSettings?.inputAudioTranscription 
+              ? { model: 'whisper-1' } 
+              : (textOnly ? null : { model: 'whisper-1' }),
+            turn_detection: realtimeSettings?.turnDetection || (textOnly ? null : {
               type: 'server_vad',
               threshold: 0.5,
               prefix_padding_ms: 300,
               silence_duration_ms: 1000
-            },
-            temperature: 0.8,
-            max_response_output_tokens: 'inf'
+            }),
+            temperature: realtimeSettings?.temperature || 0.8,
+            max_response_output_tokens: realtimeSettings?.maxOutputTokens || 'inf'
           }
         };
 

@@ -15,6 +15,7 @@ import { SessionView } from '@/components/views/SessionView';
 import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig } from '@/utils/webrtcAudio';
 import { updateSessionTone } from '@/utils/toneAdapter';
 import { useToast } from '@/hooks/use-toast';
+import { RealtimeModelSettings, ChatModelSettings, DEFAULT_REALTIME_SETTINGS, DEFAULT_CHAT_SETTINGS } from '@/types/modelSettings';
 interface EventEntry {
   timestamp: string;
   data: any;
@@ -89,6 +90,8 @@ export default function Index() {
   } | null>(null);
   const [adaptiveTone, setAdaptiveTone] = useState(true);
   const [currentView, setCurrentView] = useState('session'); // Default to session view
+  const [realtimeSettings, setRealtimeSettings] = useState<RealtimeModelSettings>(DEFAULT_REALTIME_SETTINGS);
+  const [chatSettings, setChatSettings] = useState<ChatModelSettings>(DEFAULT_CHAT_SETTINGS);
 
   // Authentication check
   useEffect(() => {
@@ -342,7 +345,7 @@ export default function Index() {
         const {
           pc,
           dc
-        } = await createRealtimeSession(stream, token, voice, model, botPrompt, handleMessage, supabaseToken, knowledgeBaseId || undefined, false);
+        } = await createRealtimeSession(stream, token, voice, model, botPrompt, handleMessage, supabaseToken, knowledgeBaseId || undefined, false, realtimeSettings);
         setPeerConnection(pc);
         setDataChannel(dc);
         const startTime = Date.now();
@@ -1051,6 +1054,12 @@ export default function Index() {
             onVoiceChange={setSelectedVoice}
             onModeChange={setInteractionMode}
             onPricingChange={setPricingConfig}
+            realtimeSettings={realtimeSettings}
+            chatSettings={chatSettings}
+            onRealtimeSettingsChange={setRealtimeSettings}
+            onChatSettingsChange={setChatSettings}
+          />
+        );
           />
         );
       case 'system-prompt':

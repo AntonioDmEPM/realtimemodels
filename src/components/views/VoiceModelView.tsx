@@ -6,6 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { PricingConfig, MODEL_PRICING } from '@/components/PricingSettings';
+import { 
+  RealtimeModelSettings, 
+  ChatModelSettings, 
+  DEFAULT_REALTIME_SETTINGS, 
+  DEFAULT_CHAT_SETTINGS 
+} from '@/types/modelSettings';
+import { RealtimeModelSettings as RealtimeSettingsComponent } from '@/components/RealtimeModelSettings';
+import { ChatModelSettings as ChatSettingsComponent } from '@/components/ChatModelSettings';
 
 const REALTIME_MODELS = [
   { id: 'gpt-4o-realtime-preview-2024-12-17', name: 'GPT-4o Realtime (2024-12-17)' },
@@ -38,6 +46,10 @@ interface VoiceModelViewProps {
   onVoiceChange: (voice: string) => void;
   onModeChange: (mode: 'voice' | 'chat') => void;
   onPricingChange: (pricing: PricingConfig) => void;
+  realtimeSettings?: RealtimeModelSettings;
+  chatSettings?: ChatModelSettings;
+  onRealtimeSettingsChange?: (settings: RealtimeModelSettings) => void;
+  onChatSettingsChange?: (settings: ChatModelSettings) => void;
 }
 
 export function VoiceModelView({
@@ -50,8 +62,14 @@ export function VoiceModelView({
   onVoiceChange,
   onModeChange,
   onPricingChange,
+  realtimeSettings = DEFAULT_REALTIME_SETTINGS,
+  chatSettings = DEFAULT_CHAT_SETTINGS,
+  onRealtimeSettingsChange,
+  onChatSettingsChange,
 }: VoiceModelViewProps) {
   const [localPricing, setLocalPricing] = useState<PricingConfig>(pricingConfig);
+  const [localRealtimeSettings, setLocalRealtimeSettings] = useState<RealtimeModelSettings>(realtimeSettings);
+  const [localChatSettings, setLocalChatSettings] = useState<ChatModelSettings>(chatSettings);
 
   useEffect(() => {
     const modelKey = selectedModel as keyof typeof MODEL_PRICING;
@@ -68,7 +86,24 @@ export function VoiceModelView({
     } else {
       setLocalPricing(defaultPricing);
     }
-  }, [selectedModel]);
+
+    // Load advanced settings
+    if (mode === 'voice') {
+      const savedRealtimeSettings = localStorage.getItem('realtime_settings');
+      if (savedRealtimeSettings) {
+        const parsed = JSON.parse(savedRealtimeSettings);
+        setLocalRealtimeSettings(parsed);
+        onRealtimeSettingsChange?.(parsed);
+      }
+    } else {
+      const savedChatSettings = localStorage.getItem('chat_settings');
+      if (savedChatSettings) {
+        const parsed = JSON.parse(savedChatSettings);
+        setLocalChatSettings(parsed);
+        onChatSettingsChange?.(parsed);
+      }
+    }
+  }, [selectedModel, mode]);
 
   const handleModelChange = (newModel: string) => {
     onModelChange(newModel);
@@ -100,6 +135,28 @@ export function VoiceModelView({
     setLocalPricing(defaultPricing);
     localStorage.removeItem(`pricing_config_${selectedModel}`);
     onPricingChange(defaultPricing);
+  };
+
+  const handleSaveRealtimeSettings = () => {
+    localStorage.setItem('realtime_settings', JSON.stringify(localRealtimeSettings));
+    onRealtimeSettingsChange?.(localRealtimeSettings);
+  };
+
+  const handleResetRealtimeSettings = () => {
+    setLocalRealtimeSettings(DEFAULT_REALTIME_SETTINGS);
+    localStorage.removeItem('realtime_settings');
+    onRealtimeSettingsChange?.(DEFAULT_REALTIME_SETTINGS);
+  };
+
+  const handleSaveChatSettings = () => {
+    localStorage.setItem('chat_settings', JSON.stringify(localChatSettings));
+    onChatSettingsChange?.(localChatSettings);
+  };
+
+  const handleResetChatSettings = () => {
+    setLocalChatSettings(DEFAULT_CHAT_SETTINGS);
+    localStorage.removeItem('chat_settings');
+    onChatSettingsChange?.(DEFAULT_CHAT_SETTINGS);
   };
 
   const currentModels = mode === 'voice' ? REALTIME_MODELS : CHAT_MODELS;
@@ -162,6 +219,61 @@ export function VoiceModelView({
                   </SelectContent>
                 </Select>
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Advanced Model Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {mode === 'voice' ? (
+              <>
+                <RealtimeSettingsComponent
+                  settings={localRealtimeSettings}
+                  onChange={setLocalRealtimeSettings}
+                  disabled={isConnected}
+                />
+                <div className="flex gap-2 pt-2">
+                  <Button 
+                    onClick={handleSaveRealtimeSettings}
+                    disabled={isConnected}
+                  >
+                    Save Settings
+                  </Button>
+                  <Button 
+                    onClick={handleResetRealtimeSettings}
+                    variant="outline"
+                    disabled={isConnected}
+                  >
+                    Reset to Defaults
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <ChatSettingsComponent
+                  settings={localChatSettings}
+                  onChange={setLocalChatSettings}
+                  disabled={isConnected}
+                />
+                <div className="flex gap-2 pt-2">
+                  <Button 
+                    onClick={handleSaveChatSettings}
+                    disabled={isConnected}
+                  >
+                    Save Settings
+                  </Button>
+                  <Button 
+                    onClick={handleResetChatSettings}
+                    variant="outline"
+                    disabled={isConnected}
+                  >
+                    Reset to Defaults
+                  </Button>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
