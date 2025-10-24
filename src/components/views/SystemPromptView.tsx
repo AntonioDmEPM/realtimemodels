@@ -384,11 +384,25 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
                       <div className="space-y-4">
                         <div>
                           <Label>Current Prompt</Label>
-                          <Textarea
-                            value={prompt}
-                            readOnly
-                            className="font-mono text-sm mt-2 min-h-[200px]"
-                          />
+                          <div className="border border-muted-foreground/20 rounded-md overflow-hidden mt-2">
+                            <Editor
+                              height="200px"
+                              defaultLanguage="yaml"
+                              value={prompt}
+                              theme={theme === 'dark' ? 'vs-dark' : 'light'}
+                              options={{
+                                readOnly: true,
+                                minimap: { enabled: false },
+                                fontSize: 13,
+                                lineNumbers: 'on',
+                                scrollBeyondLastLine: false,
+                                wordWrap: 'on',
+                                automaticLayout: true,
+                                padding: { top: 12, bottom: 12 },
+                                fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+                              }}
+                            />
+                          </div>
                         </div>
                         <Button onClick={handleImprovePrompt} disabled={isGenerating} className="w-full">
                           {isGenerating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -399,19 +413,47 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
                       <div className="space-y-4">
                         <div>
                           <Label>Current Prompt</Label>
-                          <Textarea
-                            value={prompt}
-                            readOnly
-                            className="font-mono text-sm mt-2 min-h-[150px] bg-muted"
-                          />
+                          <div className="border border-muted-foreground/20 rounded-md overflow-hidden mt-2 bg-muted">
+                            <Editor
+                              height="150px"
+                              defaultLanguage="yaml"
+                              value={prompt}
+                              theme={theme === 'dark' ? 'vs-dark' : 'light'}
+                              options={{
+                                readOnly: true,
+                                minimap: { enabled: false },
+                                fontSize: 13,
+                                lineNumbers: 'on',
+                                scrollBeyondLastLine: false,
+                                wordWrap: 'on',
+                                automaticLayout: true,
+                                padding: { top: 12, bottom: 12 },
+                                fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+                              }}
+                            />
+                          </div>
                         </div>
                         <div>
                           <Label>Suggested Improvements</Label>
-                          <Textarea
-                            value={improvedPrompt}
-                            onChange={(e) => setImprovedPrompt(e.target.value)}
-                            className="font-mono text-sm mt-2 min-h-[150px]"
-                          />
+                          <div className="border border-muted-foreground/20 rounded-md overflow-hidden mt-2">
+                            <Editor
+                              height="150px"
+                              defaultLanguage="yaml"
+                              value={improvedPrompt}
+                              onChange={(value) => setImprovedPrompt(value || '')}
+                              theme={theme === 'dark' ? 'vs-dark' : 'light'}
+                              options={{
+                                minimap: { enabled: false },
+                                fontSize: 13,
+                                lineNumbers: 'on',
+                                scrollBeyondLastLine: false,
+                                wordWrap: 'on',
+                                automaticLayout: true,
+                                padding: { top: 12, bottom: 12 },
+                                fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+                              }}
+                            />
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           <Button onClick={handleApplyImprovement} className="flex-1">
