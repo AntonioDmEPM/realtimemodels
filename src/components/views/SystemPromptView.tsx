@@ -242,8 +242,8 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
                 id="botPrompt"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                className="font-mono text-sm resize-none overflow-hidden min-h-[400px]"
-                placeholder="Enter the bot's system prompt..."
+                className="font-mono text-sm resize-none overflow-hidden min-h-[400px] bg-muted/50 border-muted-foreground/20 focus-visible:border-primary/50 px-4 py-3 leading-relaxed"
+                placeholder="# Enter your system prompt here..."
               />
             </div>
             <div className="flex flex-wrap gap-2">
