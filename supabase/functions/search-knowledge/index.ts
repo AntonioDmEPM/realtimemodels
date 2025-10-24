@@ -78,7 +78,7 @@ serve(async (req) => {
       throw new Error('OpenAI_API_Token is not configured');
     }
 
-    const { query, knowledge_base_id, match_threshold = 0.7, match_count = 5 } = await req.json();
+    const { query, knowledge_base_id, match_threshold = 0.3, match_count = 5 } = await req.json();
 
     // Input validation
     if (!query || typeof query !== 'string') {

@@ -178,7 +178,7 @@ serve(async (req) => {
                     query_embedding: `[${queryEmbedding.join(',')}]`,
                     kb_id: knowledgeBaseId,
                     p_user_id: user.id,
-                    match_threshold: 0.7,
+                    match_threshold: 0.3,
                     match_count: 3,
                   });
 

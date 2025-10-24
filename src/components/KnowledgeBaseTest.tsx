@@ -9,7 +9,7 @@ export const KnowledgeBaseTest = ({ knowledgeBaseId }: { knowledgeBaseId: string
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any[]>([]);
-  const [threshold, setThreshold] = useState(0.5);
+  const [threshold, setThreshold] = useState(0.3);
   const [matchCount, setMatchCount] = useState(5);
   const { toast } = useToast();
 
@@ -86,7 +86,7 @@ export const KnowledgeBaseTest = ({ knowledgeBaseId }: { knowledgeBaseId: string
             <label className="text-xs font-medium">Similarity Threshold: {threshold.toFixed(2)}</label>
             <input
               type="range"
-              min="0.3"
+              min="0.0"
               max="0.9"
               step="0.05"
               value={threshold}
