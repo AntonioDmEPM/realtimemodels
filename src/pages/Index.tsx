@@ -896,6 +896,7 @@ export default function Index() {
         <AppSidebar
           currentView={currentView}
           onViewChange={setCurrentView}
+          isSessionActive={isConnected}
         />
 
         {/* Main Content Area */}

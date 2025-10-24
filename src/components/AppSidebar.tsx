@@ -21,9 +21,10 @@ const navItems = [
 interface AppSidebarProps {
   currentView: string;
   onViewChange: (view: string) => void;
+  isSessionActive?: boolean;
 }
 
-export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
+export function AppSidebar({ currentView, onViewChange, isSessionActive = false }: AppSidebarProps) {
   const { open } = useSidebar();
 
   return (
@@ -32,18 +33,23 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.id}>
-                  <SidebarMenuButton
-                    onClick={() => onViewChange(item.id)}
-                    isActive={currentView === item.id}
-                    tooltip={item.title}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {open && <span>{item.title}</span>}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {navItems.map((item) => {
+                const isDisabled = isSessionActive && item.id !== 'session';
+                return (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton
+                      onClick={() => !isDisabled && onViewChange(item.id)}
+                      isActive={currentView === item.id}
+                      disabled={isDisabled}
+                      tooltip={isDisabled ? 'Stop the session to switch views' : item.title}
+                      className={isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {open && <span>{item.title}</span>}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
