@@ -128,98 +128,7 @@ serve(async (req) => {
       throw new Error('Invalid knowledge base ID format');
     }
 
-    let knowledgeContext = '';
-    
-    // If knowledge base is configured, search for relevant context
-    if (knowledgeBaseId && messages.length > 0 && OPENAI_API_KEY) {
-      try {
-        // Validate knowledge base ownership
-        const { data: kb, error: kbError } = await supabase
-          .from('knowledge_bases')
-          .select('id')
-          .eq('id', knowledgeBaseId)
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (kbError) {
-          console.error('Error querying knowledge base:', kbError);
-          // Continue without knowledge base
-        } else if (!kb) {
-          console.warn('Knowledge base not found or no access:', { knowledgeBaseId, userId: user.id });
-          // Continue without knowledge base
-        } else {
-          const lastUserMessage = messages[messages.length - 1]?.content;
-          
-          if (lastUserMessage) {
-            console.log('Searching knowledge base:', knowledgeBaseId);
-            
-            try {
-              // Generate embedding for the query
-              const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${OPENAI_API_KEY}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  model: 'text-embedding-3-small',
-                  input: lastUserMessage,
-                }),
-              });
-
-              if (embeddingResponse.ok) {
-                const embeddingData = await embeddingResponse.json();
-                const queryEmbedding = embeddingData.data[0].embedding;
-
-                // Search similar chunks in knowledge base using authenticated user
-                // Convert array to pgvector format string
-                const { data: chunks, error: searchError } = await supabase
-                  .rpc('search_similar_chunks', {
-                    query_embedding: `[${queryEmbedding.join(',')}]`,
-                    kb_id: knowledgeBaseId,
-                    p_user_id: user.id,
-                    match_threshold: 0.3,
-                    match_count: 3,
-                  });
-
-                if (!searchError && chunks) {
-                  console.log('Found knowledge chunks:', chunks.length);
-                  
-                  if (chunks.length > 0) {
-                    // Store search event for display
-                    console.log('KB search results:', chunks.map((c: any) => ({
-                      content: c.content.substring(0, 100),
-                      similarity: c.similarity
-                    })));
-                    
-                    knowledgeContext = '\n\nRelevant context from knowledge base:\n' + 
-                      chunks.map((chunk: any) => chunk.content).join('\n\n');
-                  }
-                } else if (searchError) {
-                  console.error('Knowledge base search error:', searchError);
-                }
-              }
-            } catch (error) {
-              console.error('Knowledge base search error:', error);
-              // Continue without knowledge context
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Knowledge base validation error:', error);
-        // Continue without knowledge base
-      }
-    }
-
-    // Prepare messages with knowledge context
-    const messagesWithContext = [...messages];
-    if (knowledgeContext && messagesWithContext.length > 0) {
-      const lastIndex = messagesWithContext.length - 1;
-      messagesWithContext[lastIndex] = {
-        ...messagesWithContext[lastIndex],
-        content: messagesWithContext[lastIndex].content + knowledgeContext
-      };
-    }
+    // Note: Knowledge base search is now handled via tool calling only (search_knowledge_base tool)
     
     // Define tools - web search and optionally knowledge base search
     const tools = [
@@ -272,7 +181,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: validatedModel,
-        messages: messagesWithContext,
+        messages: messages,
         tools,
         tool_choice: "auto"
       }),
