@@ -93,18 +93,14 @@ export function SessionView({
         {/* LEFT SIDE - Conversation & Sentiment */}
         <ResizablePanel defaultSize={55} minSize={30}>
           <div className="h-full flex flex-col overflow-hidden">
-            <ScrollArea className="flex-1 p-4">
-              <div className="space-y-4">
-                {/* Sentiment Indicator */}
-                <SentimentIndicator sentiment={currentSentiment} />
-
-                {/* Conversation */}
-                <Card>
-                  <ConversationMessages
-                    events={events}
-                  />
-                </Card>
-              </div>
+            {/* Sentiment Indicator - Fixed at top */}
+            <div className="border-b p-4">
+              <SentimentIndicator sentiment={currentSentiment} />
+            </div>
+            
+            {/* Conversation - Full scrollable area */}
+            <ScrollArea className="flex-1">
+              <ConversationMessages events={events} />
             </ScrollArea>
 
             {/* Chat Input (for chat mode) */}
