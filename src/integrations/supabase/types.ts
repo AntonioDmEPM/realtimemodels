@@ -288,6 +288,36 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_prompts: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          prompt_content: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          prompt_content: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          prompt_content?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
           bot_prompt: string
