@@ -873,7 +873,6 @@ export default function Index() {
             totalOutputTokens={
               sessionStats.audioOutputTokens + sessionStats.textOutputTokens
             }
-            timelineSegments={timelineSegments}
             events={events}
             onStart={() => startSession(selectedVoice, selectedModel)}
             onStop={stopSession}

@@ -1,4 +1,4 @@
-import { BarChart3, TrendingUp, Clock, Activity } from 'lucide-react';
+import { BarChart3, TrendingUp, Activity } from 'lucide-react';
 import { ChevronDown } from 'lucide-react';
 import {
   Collapsible,
@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import StatsDisplay from '@/components/StatsDisplay';
 import TokenDashboard, { TokenDataPoint } from '@/components/TokenDashboard';
-import ConversationTimeline, { TimelineSegment } from '@/components/ConversationTimeline';
+
 import EventLog from '@/components/EventLog';
 import { SessionStats } from '@/utils/webrtcAudio';
 
@@ -26,7 +26,6 @@ interface AnalyticsPanelProps {
   isActive: boolean;
   totalInputTokens: number;
   totalOutputTokens: number;
-  timelineSegments: TimelineSegment[];
   events: EventEntry[];
 }
 
@@ -38,7 +37,6 @@ export function AnalyticsPanel({
   isActive,
   totalInputTokens,
   totalOutputTokens,
-  timelineSegments,
   events,
 }: AnalyticsPanelProps) {
   return (
@@ -102,29 +100,6 @@ export function AnalyticsPanel({
                     isActive={isActive}
                     totalInputTokens={totalInputTokens}
                     totalOutputTokens={totalOutputTokens}
-                  />
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-
-          {/* Conversation Timeline */}
-          <Collapsible defaultOpen={false} className="group/collapsible">
-            <Card>
-              <CardHeader className="pb-3">
-                <CollapsibleTrigger className="flex w-full items-center justify-between hover:opacity-80">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Timeline
-                  </CardTitle>
-                  <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                </CollapsibleTrigger>
-              </CardHeader>
-              <CollapsibleContent>
-                <CardContent>
-                  <ConversationTimeline
-                    segments={timelineSegments}
-                    sessionStartTime={sessionStartTime}
                   />
                 </CardContent>
               </CollapsibleContent>

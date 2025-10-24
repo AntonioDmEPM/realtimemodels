@@ -9,7 +9,6 @@ import SentimentIndicator from '@/components/SentimentIndicator';
 import ConversationMessages from '@/components/ConversationMessages';
 import { AnalyticsPanel } from '@/components/AnalyticsPanel';
 import { SessionStats } from '@/utils/webrtcAudio';
-import { TimelineSegment } from '@/components/ConversationTimeline';
 import { TokenDataPoint } from '@/components/TokenDashboard';
 
 interface EventEntry {
@@ -34,7 +33,6 @@ interface SessionViewProps {
   tokenDataPoints: TokenDataPoint[];
   totalInputTokens: number;
   totalOutputTokens: number;
-  timelineSegments: TimelineSegment[];
   events: EventEntry[];
   onStart: () => void;
   onStop: () => void;
@@ -56,7 +54,6 @@ export function SessionView({
   tokenDataPoints,
   totalInputTokens,
   totalOutputTokens,
-  timelineSegments,
   events,
   onStart,
   onStop,
@@ -116,7 +113,6 @@ export function SessionView({
                   isActive={isConnected}
                   totalInputTokens={totalInputTokens}
                   totalOutputTokens={totalOutputTokens}
-                  timelineSegments={timelineSegments}
                   events={events}
                 />
               </div>
