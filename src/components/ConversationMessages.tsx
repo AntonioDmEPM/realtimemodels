@@ -57,26 +57,31 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
     const processedResponseIds = new Set<string>(); // Track processed response IDs to avoid duplicates
     const knowledgeResultsMap = new Map<string, any[]>(); // call_id -> knowledge results
     const pendingKnowledge: any[] = []; // Store knowledge results until next assistant message
-    let pendingSentiment: any = null; // Store sentiment for the next user message
+    const sentimentMap = new Map<string, any>(); // timestamp -> sentiment data for matching
 
     console.log('Extracting messages from events:', events.length);
 
+    // First pass: collect all sentiment events by timestamp
+    events.forEach((event) => {
+      if (event.data.type === 'sentiment.detected') {
+        console.log('Found sentiment detection:', event.data, 'at timestamp:', event.timestamp);
+        sentimentMap.set(event.data.timestamp, {
+          sentiment: event.data.sentiment,
+          confidence: event.data.confidence,
+          reason: event.data.reason
+        });
+      }
+    });
+
+    console.log('Collected sentiments:', sentimentMap.size);
+
+    // Second pass: process messages and match sentiments
     events.forEach((event, index) => {
       const eventType = event.data.type;
       
       // Log first few events for debugging
       if (index < 5) {
         console.log('Event type:', eventType, 'Data:', event.data);
-      }
-
-      // Capture sentiment detection events
-      if (eventType === 'sentiment.detected') {
-        console.log('Found sentiment detection:', event.data);
-        pendingSentiment = {
-          sentiment: event.data.sentiment,
-          confidence: event.data.confidence,
-          reason: event.data.reason
-        };
       }
 
       // Capture knowledge base search results
@@ -87,15 +92,32 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
 
       // Capture user input transcriptions from completed events
       if (eventType === 'conversation.item.input_audio_transcription.completed') {
-        console.log('Found user transcription:', event.data.transcript);
+        console.log('Found user transcription:', event.data.transcript, 'at timestamp:', event.timestamp);
+        
+        // Find the closest sentiment by timestamp (within 5 seconds before this message)
+        let closestSentiment = null;
+        const messageTime = new Date(event.timestamp).getTime();
+        
+        for (const [sentimentTimestamp, sentimentData] of sentimentMap.entries()) {
+          const sentimentTime = new Date(sentimentTimestamp).getTime();
+          const timeDiff = messageTime - sentimentTime;
+          
+          // Sentiment should be within 5 seconds before the message (not after)
+          if (timeDiff >= 0 && timeDiff <= 5000) {
+            closestSentiment = sentimentData;
+            console.log('Matched sentiment:', sentimentData, 'to message at time diff:', timeDiff, 'ms');
+            sentimentMap.delete(sentimentTimestamp); // Remove to avoid reusing
+            break;
+          }
+        }
+        
         messages.push({
           id: `msg-${messageIdCounter++}`,
           role: 'user',
           content: event.data.transcript || '[Audio input]',
           timestamp: event.timestamp,
-          sentiment: pendingSentiment,
+          sentiment: closestSentiment,
         });
-        pendingSentiment = null; // Clear after use
       }
 
       // Accumulate text deltas for text-mode responses
@@ -186,23 +208,51 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
         if (item.content) {
           for (const content of item.content) {
             if (content.type === 'input_text' && content.text) {
+              // Find the closest sentiment by timestamp
+              let closestSentiment = null;
+              const messageTime = new Date(event.timestamp).getTime();
+              
+              for (const [sentimentTimestamp, sentimentData] of sentimentMap.entries()) {
+                const sentimentTime = new Date(sentimentTimestamp).getTime();
+                const timeDiff = messageTime - sentimentTime;
+                
+                if (timeDiff >= 0 && timeDiff <= 5000) {
+                  closestSentiment = sentimentData;
+                  sentimentMap.delete(sentimentTimestamp);
+                  break;
+                }
+              }
+              
               messages.push({
                 id: `msg-${messageIdCounter++}`,
                 role: 'user',
                 content: content.text,
                 timestamp: event.timestamp,
-                sentiment: pendingSentiment,
+                sentiment: closestSentiment,
               });
-              pendingSentiment = null; // Clear after use
             } else if (content.type === 'input_audio' && content.transcript) {
+              // Find the closest sentiment by timestamp
+              let closestSentiment = null;
+              const messageTime = new Date(event.timestamp).getTime();
+              
+              for (const [sentimentTimestamp, sentimentData] of sentimentMap.entries()) {
+                const sentimentTime = new Date(sentimentTimestamp).getTime();
+                const timeDiff = messageTime - sentimentTime;
+                
+                if (timeDiff >= 0 && timeDiff <= 5000) {
+                  closestSentiment = sentimentData;
+                  sentimentMap.delete(sentimentTimestamp);
+                  break;
+                }
+              }
+              
               messages.push({
                 id: `msg-${messageIdCounter++}`,
                 role: 'user',
                 content: content.transcript,
                 timestamp: event.timestamp,
-                sentiment: pendingSentiment,
+                sentiment: closestSentiment,
               });
-              pendingSentiment = null; // Clear after use
             }
           }
         }
