@@ -417,10 +417,12 @@ export default function Index() {
       } else {
         toast({
           title: 'Session Saved',
-          description: 'Session automatically saved'
+          description: 'Session data has been saved. Click "Reset All" to clear the display.'
         });
       }
     }
+    
+    // Close connections but KEEP data visible on screen
     if (peerConnection) {
       peerConnection.close();
       setPeerConnection(null);
@@ -437,15 +439,12 @@ export default function Index() {
       audioStream.getTracks().forEach(track => track.stop());
       setAudioStream(null);
     }
+    
+    // Only stop the connection, keep all data visible
     setIsConnected(false);
     setIsAudioActive(false);
     setStatusType('idle');
-    setStatusMessage('');
-    setCurrentStats(initialStats);
-    sessionStartTimeRef.current = null;
-    setSessionStartTime(null);
-    setCurrentSegment(null);
-    setChatMessages([]);
+    setStatusMessage('Session stopped. Data preserved.');
   };
   const sendChatMessage = async (message: string) => {
     if (!message.trim()) {
@@ -761,6 +760,7 @@ export default function Index() {
     }
   };
   const resetAll = () => {
+    // Clear all session data and UI state
     setSessionStats(initialStats);
     setCurrentStats(initialStats);
     setTimelineSegments([]);
@@ -771,6 +771,14 @@ export default function Index() {
     });
     setEvents([]);
     setChatMessages([]);
+    setSessionStartTime(null);
+    sessionStartTimeRef.current = null;
+    setCurrentSegment(null);
+    setCurrentSentiment(null);
+    setIsAudioActive(false);
+    setStatusMessage('');
+    setStatusType('idle');
+    
     toast({
       title: 'Reset Complete',
       description: 'All session data has been cleared'
