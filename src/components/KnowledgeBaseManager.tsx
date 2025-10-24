@@ -78,6 +78,8 @@ export const KnowledgeBaseManager = () => {
 
   const loadDocuments = async (kbId: string) => {
     try {
+      console.log('Loading documents for KB:', kbId);
+      
       // Load from knowledge_documents table with chunk count
       const { data: docs, error } = await supabase
         .from('knowledge_documents')
@@ -85,15 +87,31 @@ export const KnowledgeBaseManager = () => {
         .eq('knowledge_base_id', kbId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading documents:', error);
+        throw error;
+      }
+      
+      console.log(`Found ${docs?.length || 0} documents`);
+      
+      if (!docs || docs.length === 0) {
+        setDocuments([]);
+        return;
+      }
       
       // Get chunk counts for each document
       const docsWithCounts = await Promise.all(
-        (docs || []).map(async (doc) => {
-          const { count } = await supabase
+        docs.map(async (doc) => {
+          const { count, error: countError } = await supabase
             .from('knowledge_chunks')
             .select('*', { count: 'exact', head: true })
             .eq('document_id', doc.id);
+          
+          if (countError) {
+            console.error('Error counting chunks for doc', doc.id, countError);
+          }
+          
+          console.log(`Document ${doc.file_name}: ${count || 0} chunks`);
           
           return {
             id: doc.id,
@@ -109,6 +127,11 @@ export const KnowledgeBaseManager = () => {
       setDocuments(docsWithCounts);
     } catch (error) {
       console.error('Error loading documents:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load documents',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -451,15 +474,53 @@ export const KnowledgeBaseManager = () => {
                         </div>
                       </div>
                     </div>
-                    <Badge 
-                      variant={
-                        doc.status === 'completed' ? 'default' : 
-                        doc.status === 'partial' ? 'secondary' : 
-                        'destructive'
-                      }
-                    >
-                      {doc.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant={
+                          doc.status === 'completed' ? 'default' : 
+                          doc.status === 'partial' ? 'secondary' : 
+                          'destructive'
+                        }
+                      >
+                        {doc.status}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={async () => {
+                          if (!confirm('Delete this document and all its chunks?')) return;
+                          try {
+                            const { error: chunksError } = await supabase
+                              .from('knowledge_chunks')
+                              .delete()
+                              .eq('document_id', doc.id);
+                            if (chunksError) throw chunksError;
+                            
+                            const { error } = await supabase
+                              .from('knowledge_documents')
+                              .delete()
+                              .eq('id', doc.id);
+                            if (error) throw error;
+                            
+                            toast({
+                              title: 'Success',
+                              description: 'Document deleted successfully',
+                            });
+                            if (selectedKB) await loadDocuments(selectedKB.id);
+                          } catch (error) {
+                            console.error('Error deleting document:', error);
+                            toast({
+                              title: 'Error',
+                              description: 'Failed to delete document',
+                              variant: 'destructive',
+                            });
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))
               )}
