@@ -31,6 +31,24 @@ interface Message {
 }
 
 export default function ConversationMessages({ events }: ConversationMessagesProps) {
+  const getSentimentBubbleClasses = (sentiment?: Message['sentiment']) => {
+    if (!sentiment) {
+      return 'bg-primary text-primary-foreground rounded-tr-sm';
+    }
+    
+    switch (sentiment.sentiment) {
+      case 'positive':
+        return 'bg-green-600 text-white rounded-tr-sm';
+      case 'negative':
+        return 'bg-red-600 text-white rounded-tr-sm';
+      case 'mixed':
+        return 'bg-yellow-600 text-white rounded-tr-sm';
+      case 'neutral':
+      default:
+        return 'bg-primary text-primary-foreground rounded-tr-sm';
+    }
+  };
+
   // Extract conversation messages from events
   const extractMessages = (): Message[] => {
     const messages: Message[] = [];
@@ -251,13 +269,8 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                     >
                       {message.sentiment && message.role === 'user' && (
                         <Badge 
-                          variant={
-                            message.sentiment.sentiment === 'positive' ? 'default' :
-                            message.sentiment.sentiment === 'negative' ? 'destructive' :
-                            message.sentiment.sentiment === 'mixed' ? 'outline' :
-                            'secondary'
-                          }
-                          className="text-xs px-2 py-0.5"
+                          variant="outline"
+                          className="text-xs px-2 py-0.5 opacity-80"
                         >
                           {message.sentiment.sentiment} ({Math.round(message.sentiment.confidence * 100)}%)
                         </Badge>
@@ -268,7 +281,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                             <div
                               className={`rounded-2xl px-4 py-2 cursor-help ${
                                 message.role === 'user'
-                                  ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                                  ? getSentimentBubbleClasses(message.sentiment)
                                   : 'bg-muted text-foreground rounded-tl-sm'
                               }`}
                             >
@@ -292,7 +305,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                         <div
                           className={`rounded-2xl px-4 py-2 ${
                             message.role === 'user'
-                              ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                              ? getSentimentBubbleClasses(message.sentiment)
                               : 'bg-muted text-foreground rounded-tl-sm'
                           }`}
                         >
