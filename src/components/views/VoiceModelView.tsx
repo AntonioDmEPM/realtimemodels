@@ -15,9 +15,9 @@ const REALTIME_MODELS = [
 ];
 
 const CHAT_MODELS = [
-  { id: 'gpt-5', name: 'GPT-5' },
-  { id: 'gpt-5-mini', name: 'GPT-5 Mini' },
-  { id: 'gpt-5-nano', name: 'GPT-5 Nano' },
+  { id: 'openai/gpt-5', name: 'GPT-5' },
+  { id: 'openai/gpt-5-mini', name: 'GPT-5 Mini' },
+  { id: 'openai/gpt-5-nano', name: 'GPT-5 Nano' },
 ];
 
 const VOICES = [
@@ -79,7 +79,7 @@ export function VoiceModelView({
     onModeChange(newMode);
     localStorage.setItem('interaction_mode', newMode);
     
-    const defaultModel = newMode === 'voice' ? 'gpt-4o-realtime-preview-2024-12-17' : 'gpt-5-mini';
+    const defaultModel = newMode === 'voice' ? 'gpt-4o-realtime-preview-2024-12-17' : 'openai/gpt-5-mini';
     handleModelChange(defaultModel);
   };
 
