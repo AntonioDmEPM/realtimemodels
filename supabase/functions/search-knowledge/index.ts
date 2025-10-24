@@ -148,7 +148,24 @@ serve(async (req) => {
 
     console.log('Query embedding generated, searching for similar chunks...');
 
-    // Search for similar chunks using the database function (convert to pgvector format)
+    // First, get ALL chunks with their similarity scores for debugging
+    const { data: allChunks, error: debugError } = await supabase
+      .rpc('search_similar_chunks', {
+        query_embedding: `[${queryEmbedding.join(',')}]`,
+        kb_id: knowledge_base_id,
+        p_user_id: user.id,
+        match_threshold: 0.0,
+        match_count: 10
+      });
+
+    if (!debugError && allChunks) {
+      console.log('Top 10 similarity scores (all chunks):');
+      allChunks.forEach((chunk: any, idx: number) => {
+        console.log(`  ${idx + 1}. Score: ${chunk.similarity.toFixed(4)} - ${chunk.content.substring(0, 80)}...`);
+      });
+    }
+
+    // Now search with actual threshold
     const { data: results, error: searchError } = await supabase
       .rpc('search_similar_chunks', {
         query_embedding: `[${queryEmbedding.join(',')}]`,
@@ -163,7 +180,7 @@ serve(async (req) => {
       throw searchError;
     }
 
-    console.log(`Found ${results?.length || 0} matching chunks`);
+    console.log(`Found ${results?.length || 0} matching chunks above threshold ${validatedThreshold}`);
 
     return new Response(
       JSON.stringify({
