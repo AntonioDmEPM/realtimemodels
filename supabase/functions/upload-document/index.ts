@@ -118,9 +118,9 @@ serve(async (req) => {
       throw new Error('No readable text content found in document');
     }
     
-    // Chunk the content to fit embedding model limits (aim for ~1500 chars = ~375 tokens, well under 8192 limit)
-    const chunks = chunkText(fileContent, 1500);
-    console.log(`Created ${chunks.length} chunks from document`);
+    // Chunk with larger size and overlap for better context (2500 chars, 250 char overlap)
+    const chunks = chunkText(fileContent, 2500, 250);
+    console.log(`Created ${chunks.length} chunks from document with overlap`);
 
     // Generate embeddings and store chunks
     let successCount = 0;
@@ -129,7 +129,7 @@ serve(async (req) => {
         const chunk = chunks[i];
         console.log(`Processing chunk ${i + 1}/${chunks.length}`);
         
-        // Generate embedding using OpenAI
+        // Generate embedding using OpenAI (using large model for better quality)
         const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
           method: 'POST',
           headers: {
@@ -137,8 +137,9 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'text-embedding-3-small',
-            input: chunk
+            model: 'text-embedding-3-large',
+            input: chunk,
+            dimensions: 1536 // Optimal dimension for quality/performance balance
           }),
         });
 
@@ -151,7 +152,7 @@ serve(async (req) => {
         const embeddingData = await embeddingResponse.json();
         const embedding = embeddingData.data[0].embedding;
 
-        // Store chunk with embedding (convert to pgvector format)
+        // Store chunk with embedding and enriched metadata
         const { error: chunkError } = await supabase
           .from('knowledge_chunks')
           .insert({
@@ -160,7 +161,13 @@ serve(async (req) => {
             knowledge_base_id: knowledgeBaseId,
             content: chunk,
             embedding: `[${embedding.join(',')}]`,
-            metadata: { chunk_index: i, chunk_size: chunk.length }
+            metadata: { 
+              chunk_index: i, 
+              chunk_size: chunk.length,
+              document_name: file.name,
+              file_type: file.type,
+              total_chunks: chunks.length
+            }
           });
 
         if (chunkError) {
@@ -206,47 +213,69 @@ serve(async (req) => {
   }
 });
 
-// Helper function to chunk text
-function chunkText(text: string, maxChunkSize: number): string[] {
+// Helper function to chunk text with overlap for better context preservation
+function chunkText(text: string, maxChunkSize: number, overlapSize: number = 0): string[] {
   const chunks: string[] = [];
   const paragraphs = text.split(/\n\n+/);
   
   let currentChunk = '';
+  let previousChunkEnd = ''; // Store end of previous chunk for overlap
+  
+  const finalizeChunk = (chunk: string) => {
+    if (chunk.trim().length > 0) {
+      chunks.push(chunk.trim());
+      // Save the last portion for overlap with next chunk
+      if (overlapSize > 0) {
+        const words = chunk.split(/\s+/);
+        const overlapWords = Math.min(Math.floor(overlapSize / 5), words.length); // ~5 chars per word
+        previousChunkEnd = words.slice(-overlapWords).join(' ');
+      }
+    }
+  };
   
   for (const paragraph of paragraphs) {
+    // Add overlap from previous chunk if exists
+    const chunkStart = previousChunkEnd && currentChunk.length === 0 ? previousChunkEnd + ' ' : '';
+    
     // If a single paragraph is too long, split it by sentences
     if (paragraph.length > maxChunkSize) {
       // Save current chunk if it exists
       if (currentChunk.length > 0) {
-        chunks.push(currentChunk.trim());
-        currentChunk = '';
+        finalizeChunk(currentChunk);
+        currentChunk = chunkStart;
       }
       
       // Split long paragraph by sentences
-      const sentences = paragraph.split(/[.!?]+\s+/);
+      const sentences = paragraph.split(/(?<=[.!?])\s+/);
       for (const sentence of sentences) {
         if (sentence.length > maxChunkSize) {
-          // If even a sentence is too long, split by character limit
-          for (let i = 0; i < sentence.length; i += maxChunkSize) {
-            chunks.push(sentence.slice(i, i + maxChunkSize).trim());
+          // If even a sentence is too long, split by character limit with overlap
+          if (currentChunk.length > 0) {
+            finalizeChunk(currentChunk);
+            currentChunk = chunkStart;
+          }
+          
+          for (let i = 0; i < sentence.length; i += maxChunkSize - overlapSize) {
+            const end = Math.min(i + maxChunkSize, sentence.length);
+            finalizeChunk(sentence.slice(i, end));
           }
         } else if (currentChunk.length + sentence.length > maxChunkSize && currentChunk.length > 0) {
-          chunks.push(currentChunk.trim());
-          currentChunk = sentence;
+          finalizeChunk(currentChunk);
+          currentChunk = chunkStart + sentence;
         } else {
-          currentChunk += (currentChunk ? '. ' : '') + sentence;
+          currentChunk += (currentChunk && currentChunk !== chunkStart ? ' ' : '') + sentence;
         }
       }
     } else if (currentChunk.length + paragraph.length > maxChunkSize && currentChunk.length > 0) {
-      chunks.push(currentChunk.trim());
-      currentChunk = paragraph;
+      finalizeChunk(currentChunk);
+      currentChunk = chunkStart + paragraph;
     } else {
-      currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
+      currentChunk += (currentChunk && currentChunk !== chunkStart ? '\n\n' : '') + paragraph;
     }
   }
   
   if (currentChunk && currentChunk.trim().length > 0) {
-    chunks.push(currentChunk.trim());
+    finalizeChunk(currentChunk);
   }
   
   return chunks.filter(c => c.length > 0);
