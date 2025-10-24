@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import Editor from '@monaco-editor/react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -9,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, Library, Sparkles, Trash2 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 
 interface SavedPrompt {
   id: string;
@@ -37,25 +39,14 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
   const [promptName, setPromptName] = useState('');
   const [promptDescription, setPromptDescription] = useState('');
   const [improvedPrompt, setImprovedPrompt] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (currentPrompt !== undefined) {
       setPrompt(currentPrompt);
     }
   }, [currentPrompt]);
-
-  const autoResize = () => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
-    }
-  };
-
-  useEffect(() => {
-    autoResize();
-  }, [prompt]);
 
   const handleSave = () => {
     localStorage.setItem('bot_prompt', prompt);
@@ -237,14 +228,25 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="botPrompt">System Prompt</Label>
-              <Textarea
-                ref={textareaRef}
-                id="botPrompt"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="font-mono text-sm resize-none overflow-hidden min-h-[400px] bg-muted/50 border-muted-foreground/20 focus-visible:border-primary/50 px-4 py-3 leading-relaxed"
-                placeholder="# Enter your system prompt here..."
-              />
+              <div className="border border-muted-foreground/20 rounded-md overflow-hidden">
+                <Editor
+                  height="500px"
+                  defaultLanguage="yaml"
+                  value={prompt}
+                  onChange={(value) => setPrompt(value || '')}
+                  theme={theme === 'dark' ? 'vs-dark' : 'light'}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on',
+                    automaticLayout: true,
+                    padding: { top: 16, bottom: 16 },
+                    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+                  }}
+                />
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button onClick={handleSave}>
