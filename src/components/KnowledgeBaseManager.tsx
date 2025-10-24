@@ -78,14 +78,35 @@ export const KnowledgeBaseManager = () => {
 
   const loadDocuments = async (kbId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('documents')
+      // Load from knowledge_documents table with chunk count
+      const { data: docs, error } = await supabase
+        .from('knowledge_documents')
         .select('*')
         .eq('knowledge_base_id', kbId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setDocuments(data || []);
+      
+      // Get chunk counts for each document
+      const docsWithCounts = await Promise.all(
+        (docs || []).map(async (doc) => {
+          const { count } = await supabase
+            .from('knowledge_chunks')
+            .select('*', { count: 'exact', head: true })
+            .eq('document_id', doc.id);
+          
+          return {
+            id: doc.id,
+            filename: doc.file_name,
+            file_type: doc.file_type || 'unknown',
+            status: doc.upload_status,
+            chunk_count: count || 0,
+            created_at: doc.created_at
+          };
+        })
+      );
+      
+      setDocuments(docsWithCounts);
     } catch (error) {
       console.error('Error loading documents:', error);
     }
