@@ -219,58 +219,70 @@ function chunkText(text: string, maxChunkSize: number, overlapSize: number = 0):
   const paragraphs = text.split(/\n\n+/);
   
   let currentChunk = '';
-  let previousChunkEnd = ''; // Store end of previous chunk for overlap
+  let lastChunkText = ''; // Full text of last finalized chunk for overlap
   
   const finalizeChunk = (chunk: string) => {
-    if (chunk.trim().length > 0) {
-      chunks.push(chunk.trim());
-      // Save the last portion for overlap with next chunk
-      if (overlapSize > 0) {
-        const words = chunk.split(/\s+/);
-        const overlapWords = Math.min(Math.floor(overlapSize / 5), words.length); // ~5 chars per word
-        previousChunkEnd = words.slice(-overlapWords).join(' ');
-      }
+    const trimmedChunk = chunk.trim();
+    if (trimmedChunk.length > 0) {
+      chunks.push(trimmedChunk);
+      lastChunkText = trimmedChunk;
     }
   };
   
+  const getOverlapText = (): string => {
+    if (!lastChunkText || overlapSize === 0) return '';
+    // Get last N characters from previous chunk
+    const overlapStart = Math.max(0, lastChunkText.length - overlapSize);
+    return lastChunkText.slice(overlapStart) + '\n\n';
+  };
+  
   for (const paragraph of paragraphs) {
-    // Add overlap from previous chunk if exists
-    const chunkStart = previousChunkEnd && currentChunk.length === 0 ? previousChunkEnd + ' ' : '';
+    // If starting new chunk after finalization, add overlap
+    if (currentChunk.length === 0 && lastChunkText) {
+      currentChunk = getOverlapText();
+    }
     
     // If a single paragraph is too long, split it by sentences
     if (paragraph.length > maxChunkSize) {
       // Save current chunk if it exists
       if (currentChunk.length > 0) {
         finalizeChunk(currentChunk);
-        currentChunk = chunkStart;
+        currentChunk = getOverlapText();
       }
       
       // Split long paragraph by sentences
       const sentences = paragraph.split(/(?<=[.!?])\s+/);
       for (const sentence of sentences) {
         if (sentence.length > maxChunkSize) {
-          // If even a sentence is too long, split by character limit with overlap
+          // If even a sentence is too long, split by character limit
           if (currentChunk.length > 0) {
             finalizeChunk(currentChunk);
-            currentChunk = chunkStart;
+            currentChunk = getOverlapText();
           }
           
           for (let i = 0; i < sentence.length; i += maxChunkSize - overlapSize) {
             const end = Math.min(i + maxChunkSize, sentence.length);
-            finalizeChunk(sentence.slice(i, end));
+            const segment = sentence.slice(i, end);
+            if (i > 0) {
+              // Add overlap from previous segment
+              const prevOverlap = sentence.slice(Math.max(0, i - overlapSize), i);
+              finalizeChunk(prevOverlap + segment);
+            } else {
+              currentChunk += segment;
+            }
           }
-        } else if (currentChunk.length + sentence.length > maxChunkSize && currentChunk.length > 0) {
+        } else if (currentChunk.length + sentence.length > maxChunkSize) {
           finalizeChunk(currentChunk);
-          currentChunk = chunkStart + sentence;
+          currentChunk = getOverlapText() + sentence;
         } else {
-          currentChunk += (currentChunk && currentChunk !== chunkStart ? ' ' : '') + sentence;
+          currentChunk += (currentChunk && !currentChunk.endsWith('\n\n') ? ' ' : '') + sentence;
         }
       }
-    } else if (currentChunk.length + paragraph.length > maxChunkSize && currentChunk.length > 0) {
+    } else if (currentChunk.length + paragraph.length > maxChunkSize) {
       finalizeChunk(currentChunk);
-      currentChunk = chunkStart + paragraph;
+      currentChunk = getOverlapText() + paragraph;
     } else {
-      currentChunk += (currentChunk && currentChunk !== chunkStart ? '\n\n' : '') + paragraph;
+      currentChunk += (currentChunk && !currentChunk.endsWith('\n\n') ? '\n\n' : '') + paragraph;
     }
   }
   
