@@ -1060,8 +1060,6 @@ export default function Index() {
             onChatSettingsChange={setChatSettings}
           />
         );
-          />
-        );
       case 'system-prompt':
         return (
           <SystemPromptView
