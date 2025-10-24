@@ -130,11 +130,16 @@ serve(async (req) => {
         .select('id')
         .eq('id', knowledgeBaseId)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (kbError || !kb) {
-        console.error('Knowledge base not found or unauthorized:', kbError);
-        throw new Error('Knowledge base not found or unauthorized');
+      if (kbError) {
+        console.error('Error querying knowledge base:', kbError);
+        throw new Error('Error accessing knowledge base');
+      }
+      
+      if (!kb) {
+        console.error('Knowledge base not found:', { knowledgeBaseId, userId: user.id });
+        throw new Error('Knowledge base not found or you do not have access to it');
       }
 
       const lastUserMessage = messages[messages.length - 1]?.content;
