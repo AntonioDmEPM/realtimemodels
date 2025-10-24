@@ -68,55 +68,55 @@ export default function TokenDashboard({
   };
 
   return (
-    <Card className="p-6 shadow-card bg-card/50 backdrop-blur-sm border-primary/20">
-      <div className="flex items-center justify-between mb-6 pb-3 border-b">
+    <Card className="p-3 sm:p-4 lg:p-6 shadow-card bg-card/50 backdrop-blur-sm border-primary/20">
+      <div className="flex items-center justify-between mb-4 sm:mb-6 pb-2 sm:pb-3 border-b">
         <div className="flex items-center gap-2">
-          <Activity className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold">Token Usage Dashboard</h2>
+          <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+          <h2 className="text-sm sm:text-base lg:text-xl font-semibold">Token Usage</h2>
         </div>
         {isActive && (
-          <div className="flex items-center gap-2 text-sm">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-            <span className="text-muted-foreground">Live</span>
+          <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+            <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <span className="text-muted-foreground hidden sm:inline">Live</span>
           </div>
         )}
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="p-4 bg-secondary/50 rounded-lg border border-primary/10">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="p-3 sm:p-4 bg-secondary/50 rounded-lg border border-primary/10">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Total Input Tokens</p>
-              <p className="text-3xl font-bold font-mono">{totalInputTokens.toLocaleString()}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-muted-foreground mb-1">Total Input Tokens</p>
+              <p className="text-lg sm:text-2xl lg:text-3xl font-bold font-mono truncate">{totalInputTokens.toLocaleString()}</p>
             </div>
-            <TrendingUp className="h-8 w-8 text-chart-1 opacity-50" />
+            <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-chart-1 opacity-50 flex-shrink-0 ml-2" />
           </div>
         </div>
-        <div className="p-4 bg-secondary/50 rounded-lg border border-primary/10">
+        <div className="p-3 sm:p-4 bg-secondary/50 rounded-lg border border-primary/10">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Total Output Tokens</p>
-              <p className="text-3xl font-bold font-mono">{totalOutputTokens.toLocaleString()}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-muted-foreground mb-1">Total Output Tokens</p>
+              <p className="text-lg sm:text-2xl lg:text-3xl font-bold font-mono truncate">{totalOutputTokens.toLocaleString()}</p>
             </div>
-            <TrendingDown className="h-8 w-8 text-chart-2 opacity-50" />
+            <TrendingDown className="h-6 w-6 sm:h-8 sm:w-8 text-chart-2 opacity-50 flex-shrink-0 ml-2" />
           </div>
         </div>
       </div>
 
       {/* Charts */}
       {dataPoints.length > 0 ? (
-        <div className="space-y-8 mt-4">
+        <div className="space-y-4 sm:space-y-6 lg:space-y-8 mt-3 sm:mt-4">
           {/* Cumulative Chart */}
           <div>
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              Cumulative Token Usage
+            <h3 className="text-sm sm:text-base lg:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              <span className="truncate">Cumulative Tokens</span>
             </h3>
-            <ResponsiveContainer width="100%" height={350}>
+            <ResponsiveContainer width="100%" height={250} minWidth={200}>
               <LineChart 
                 data={dataPoints} 
-                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
               >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" opacity={0.3} />
                 <XAxis 
@@ -162,14 +162,14 @@ export default function TokenDashboard({
 
           {/* Per-Interaction Chart */}
           <div>
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary" />
-              Per-Interaction Token Usage
+            <h3 className="text-sm sm:text-base lg:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+              <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              <span className="truncate">Per-Interaction</span>
             </h3>
-            <ResponsiveContainer width="100%" height={350}>
+            <ResponsiveContainer width="100%" height={250} minWidth={200}>
               <LineChart 
                 data={dataPoints} 
-                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
               >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" opacity={0.3} />
                 <XAxis 
@@ -222,29 +222,29 @@ export default function TokenDashboard({
 
       {/* Session End Summary */}
       {!isActive && dataPoints.length > 0 && (
-        <div className="mt-6 p-4 bg-secondary/30 rounded-lg border border-primary/10">
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <Activity className="h-4 w-4" />
-            Session Summary
+        <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-secondary/30 rounded-lg border border-primary/10">
+          <h3 className="text-sm sm:text-base font-semibold mb-2 sm:mb-3 flex items-center gap-2">
+            <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span>Summary</span>
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">Duration</p>
-              <p className="font-mono font-semibold">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
+            <div className="min-w-0">
+              <p className="text-muted-foreground truncate">Duration</p>
+              <p className="font-mono font-semibold truncate">
                 {dataPoints[dataPoints.length - 1]?.elapsedSeconds.toFixed(1)}s
               </p>
             </div>
-            <div>
-              <p className="text-muted-foreground">Total Input</p>
-              <p className="font-mono font-semibold">{totalInputTokens}</p>
+            <div className="min-w-0">
+              <p className="text-muted-foreground truncate">Input</p>
+              <p className="font-mono font-semibold truncate">{totalInputTokens.toLocaleString()}</p>
             </div>
-            <div>
-              <p className="text-muted-foreground">Total Output</p>
-              <p className="font-mono font-semibold">{totalOutputTokens}</p>
+            <div className="min-w-0">
+              <p className="text-muted-foreground truncate">Output</p>
+              <p className="font-mono font-semibold truncate">{totalOutputTokens.toLocaleString()}</p>
             </div>
-            <div>
-              <p className="text-muted-foreground">Total Tokens</p>
-              <p className="font-mono font-semibold">{totalInputTokens + totalOutputTokens}</p>
+            <div className="min-w-0">
+              <p className="text-muted-foreground truncate">Total</p>
+              <p className="font-mono font-semibold truncate">{(totalInputTokens + totalOutputTokens).toLocaleString()}</p>
             </div>
           </div>
         </div>
