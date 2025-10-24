@@ -172,9 +172,10 @@ serve(async (req) => {
                 const queryEmbedding = embeddingData.data[0].embedding;
 
                 // Search similar chunks in knowledge base using authenticated user
+                // Convert array to pgvector format string
                 const { data: chunks, error: searchError } = await supabase
                   .rpc('search_similar_chunks', {
-                    query_embedding: queryEmbedding,
+                    query_embedding: `[${queryEmbedding.join(',')}]`,
                     kb_id: knowledgeBaseId,
                     p_user_id: user.id,
                     match_threshold: 0.7,
@@ -185,6 +186,12 @@ serve(async (req) => {
                   console.log('Found knowledge chunks:', chunks.length);
                   
                   if (chunks.length > 0) {
+                    // Store search event for display
+                    console.log('KB search results:', chunks.map((c: any) => ({
+                      content: c.content.substring(0, 100),
+                      similarity: c.similarity
+                    })));
+                    
                     knowledgeContext = '\n\nRelevant context from knowledge base:\n' + 
                       chunks.map((chunk: any) => chunk.content).join('\n\n');
                   }
