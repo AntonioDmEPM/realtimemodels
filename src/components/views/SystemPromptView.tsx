@@ -215,7 +215,7 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
 
   return (
     <div className="h-full overflow-auto p-6">
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold mb-2">System Prompt</h1>
           <p className="text-muted-foreground">Configure the AI assistant's behavior and personality</p>
