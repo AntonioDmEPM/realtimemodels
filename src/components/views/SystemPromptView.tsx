@@ -222,7 +222,7 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
         </div>
 
         <Card>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-6">
             <div className="space-y-2">
               <div className="border border-muted-foreground/20 rounded-md overflow-hidden">
                 <Editor
