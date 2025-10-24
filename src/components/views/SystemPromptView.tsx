@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import Editor from '@monaco-editor/react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -10,8 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, Library, Sparkles, Trash2 } from 'lucide-react';
-import { useTheme } from 'next-themes';
-
 interface SavedPrompt {
   id: string;
   name: string;
@@ -19,15 +16,15 @@ interface SavedPrompt {
   prompt_content: string;
   created_at: string;
 }
-
 const DEFAULT_PROMPT = "You are a helpful AI assistant. Be concise and friendly in your responses.";
-
 interface SystemPromptViewProps {
   currentPrompt: string;
   onPromptChange: (prompt: string) => void;
 }
-
-export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPromptViewProps) {
+export function SystemPromptView({
+  currentPrompt,
+  onPromptChange
+}: SystemPromptViewProps) {
   const [prompt, setPrompt] = useState<string>(currentPrompt || DEFAULT_PROMPT);
   const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
@@ -38,21 +35,29 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
   const [coilotDialogOpen, setCopilotDialogOpen] = useState(false);
   const [promptName, setPromptName] = useState('');
   const [promptDescription, setPromptDescription] = useState('');
-  const [improvedPrompt, setImprovedPrompt] = useState('');
-  const { toast } = useToast();
-  const { theme } = useTheme();
-
+  const [copilotDescription, setCopilotDescription] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const {
+    toast
+  } = useToast();
   useEffect(() => {
     if (currentPrompt !== undefined) {
       setPrompt(currentPrompt);
     }
   }, [currentPrompt]);
-
+  const autoResize = () => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    }
+  };
+  useEffect(() => {
+    autoResize();
+  }, [prompt]);
   const handleSave = () => {
     localStorage.setItem('bot_prompt', prompt);
     onPromptChange(prompt);
   };
-
   const handleReset = () => {
     setPrompt(DEFAULT_PROMPT);
     localStorage.removeItem('bot_prompt');
@@ -63,11 +68,12 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
   const loadSavedPrompts = async () => {
     setIsLoadingPrompts(true);
     try {
-      const { data, error } = await supabase
-        .from('saved_prompts')
-        .select('*')
-        .order('created_at', { ascending: false });
-
+      const {
+        data,
+        error
+      } = await supabase.from('saved_prompts').select('*').order('created_at', {
+        ascending: false
+      });
       if (error) throw error;
       setSavedPrompts(data || []);
     } catch (error) {
@@ -92,25 +98,21 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
       });
       return;
     }
-
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('saved_prompts')
-        .insert({
-          name: promptName,
-          description: promptDescription || null,
-          prompt_content: prompt,
-          user_id: (await supabase.auth.getUser()).data.user?.id
-        });
-
+      const {
+        error
+      } = await supabase.from('saved_prompts').insert({
+        name: promptName,
+        description: promptDescription || null,
+        prompt_content: prompt,
+        user_id: (await supabase.auth.getUser()).data.user?.id
+      });
       if (error) throw error;
-
       toast({
         title: "Saved!",
         description: "Prompt saved to library"
       });
-
       setPromptName('');
       setPromptDescription('');
       setSaveDialogOpen(false);
@@ -142,18 +144,14 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
   // Delete a saved prompt
   const handleDeletePrompt = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('saved_prompts')
-        .delete()
-        .eq('id', id);
-
+      const {
+        error
+      } = await supabase.from('saved_prompts').delete().eq('id', id);
       if (error) throw error;
-
       toast({
         title: "Deleted",
         description: "Prompt removed from library"
       });
-
       loadSavedPrompts();
     } catch (error) {
       console.error('Error deleting prompt:', error);
@@ -165,56 +163,48 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
     }
   };
 
-  // Improve prompt using AI co-pilot
-  const handleImprovePrompt = async () => {
-    if (!prompt.trim()) {
+  // Generate prompt using AI co-pilot
+  const handleGeneratePrompt = async () => {
+    if (!copilotDescription.trim()) {
       toast({
-        title: "No prompt to improve",
-        description: "Please enter a prompt first",
+        title: "Description required",
+        description: "Please describe what you want the AI to do",
         variant: "destructive"
       });
       return;
     }
-
     setIsGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('suggest-prompt', {
-        body: { currentPrompt: prompt }
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('suggest-prompt', {
+        body: {
+          description: copilotDescription
+        }
       });
-
       if (error) throw error;
-
       if (data.prompt) {
-        setImprovedPrompt(data.prompt);
+        setPrompt(data.prompt);
+        setCopilotDialogOpen(false);
+        setCopilotDescription('');
         toast({
-          title: "Improvements suggested!",
-          description: "Review the suggestions below"
+          title: "Prompt generated!",
+          description: "Review and save the suggested prompt"
         });
       }
     } catch (error) {
-      console.error('Error improving prompt:', error);
+      console.error('Error generating prompt:', error);
       toast({
         title: "Error",
-        description: "Failed to generate improvements",
+        description: "Failed to generate prompt suggestion",
         variant: "destructive"
       });
     } finally {
       setIsGenerating(false);
     }
   };
-
-  const handleApplyImprovement = () => {
-    setPrompt(improvedPrompt);
-    setImprovedPrompt('');
-    setCopilotDialogOpen(false);
-    toast({
-      title: "Applied!",
-      description: "Improvements have been applied to your prompt"
-    });
-  };
-
-  return (
-    <div className="h-full overflow-auto p-6">
+  return <div className="h-full overflow-auto p-6">
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold mb-2">System Prompt</h1>
@@ -222,31 +212,11 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Bot Instructions</CardTitle>
-          </CardHeader>
+          
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="botPrompt">System Prompt</Label>
-              <div className="border border-muted-foreground/20 rounded-md overflow-hidden">
-                <Editor
-                  height="500px"
-                  defaultLanguage="yaml"
-                  value={prompt}
-                  onChange={(value) => setPrompt(value || '')}
-                  theme={theme === 'dark' ? 'vs-dark' : 'light'}
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    lineNumbers: 'on',
-                    scrollBeyondLastLine: false,
-                    wordWrap: 'on',
-                    automaticLayout: true,
-                    padding: { top: 16, bottom: 16 },
-                    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
-                  }}
-                />
-              </div>
+              <Textarea ref={textareaRef} id="botPrompt" value={prompt} onChange={e => setPrompt(e.target.value)} className="font-mono text-sm resize-none overflow-hidden min-h-[400px]" placeholder="Enter the bot's system prompt..." />
             </div>
             <div className="flex flex-wrap gap-2">
               <Button onClick={handleSave}>
@@ -271,22 +241,11 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="promptName">Name</Label>
-                      <Input
-                        id="promptName"
-                        value={promptName}
-                        onChange={(e) => setPromptName(e.target.value)}
-                        placeholder="e.g., Customer Support Bot"
-                      />
+                      <Input id="promptName" value={promptName} onChange={e => setPromptName(e.target.value)} placeholder="e.g., Customer Support Bot" />
                     </div>
                     <div>
                       <Label htmlFor="promptDesc">Description (optional)</Label>
-                      <Textarea
-                        id="promptDesc"
-                        value={promptDescription}
-                        onChange={(e) => setPromptDescription(e.target.value)}
-                        placeholder="What is this prompt for?"
-                        rows={3}
-                      />
+                      <Textarea id="promptDesc" value={promptDescription} onChange={e => setPromptDescription(e.target.value)} placeholder="What is this prompt for?" rows={3} />
                     </div>
                   </div>
                   <DialogFooter>
@@ -298,10 +257,10 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
                 </DialogContent>
               </Dialog>
 
-              <Dialog open={loadDialogOpen} onOpenChange={(open) => {
-                setLoadDialogOpen(open);
-                if (open) loadSavedPrompts();
-              }}>
+              <Dialog open={loadDialogOpen} onOpenChange={open => {
+              setLoadDialogOpen(open);
+              if (open) loadSavedPrompts();
+            }}>
                 <DialogTrigger asChild>
                   <Button variant="outline">
                     <Library className="h-4 w-4 mr-2" />
@@ -316,115 +275,61 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
                     </DialogDescription>
                   </DialogHeader>
                   <div className="max-h-96 overflow-y-auto space-y-2">
-                    {isLoadingPrompts ? (
-                      <div className="flex justify-center py-8">
+                    {isLoadingPrompts ? <div className="flex justify-center py-8">
                         <Loader2 className="h-6 w-6 animate-spin" />
-                      </div>
-                    ) : savedPrompts.length === 0 ? (
-                      <p className="text-center text-muted-foreground py-8">
+                      </div> : savedPrompts.length === 0 ? <p className="text-center text-muted-foreground py-8">
                         No saved prompts yet
-                      </p>
-                    ) : (
-                      savedPrompts.map((savedPrompt) => (
-                        <Card key={savedPrompt.id} className="p-4">
+                      </p> : savedPrompts.map(savedPrompt => <Card key={savedPrompt.id} className="p-4">
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
                               <h4 className="font-semibold truncate">{savedPrompt.name}</h4>
-                              {savedPrompt.description && (
-                                <p className="text-sm text-muted-foreground mt-1">
+                              {savedPrompt.description && <p className="text-sm text-muted-foreground mt-1">
                                   {savedPrompt.description}
-                                </p>
-                              )}
+                                </p>}
                               <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
                                 {savedPrompt.prompt_content}
                               </p>
                             </div>
                             <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => handleLoadPrompt(savedPrompt)}
-                              >
+                              <Button size="sm" onClick={() => handleLoadPrompt(savedPrompt)}>
                                 Load
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleDeletePrompt(savedPrompt.id)}
-                              >
+                              <Button size="sm" variant="ghost" onClick={() => handleDeletePrompt(savedPrompt.id)}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
-                        </Card>
-                      ))
-                    )}
+                        </Card>)}
                   </div>
                 </DialogContent>
               </Dialog>
 
-              <Dialog open={coilotDialogOpen} onOpenChange={(open) => {
-                setCopilotDialogOpen(open);
-                if (!open) setImprovedPrompt('');
-              }}>
+              <Dialog open={coilotDialogOpen} onOpenChange={setCopilotDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline">
                     <Sparkles className="h-4 w-4 mr-2" />
                     AI Co-pilot
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[80vh]">
+                <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Prompt Co-pilot</DialogTitle>
                     <DialogDescription>
-                      AI will analyze your current prompt and suggest improvements
+                      Describe what you want your AI assistant to do, and we'll suggest a prompt
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 overflow-y-auto max-h-[60vh]">
-                    {!improvedPrompt ? (
-                      <div className="space-y-4">
-                        <div>
-                          <Label>Current Prompt</Label>
-                          <Textarea
-                            value={prompt}
-                            readOnly
-                            className="font-mono text-sm mt-2 min-h-[200px]"
-                          />
-                        </div>
-                        <Button onClick={handleImprovePrompt} disabled={isGenerating} className="w-full">
-                          {isGenerating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                          Analyze & Suggest Improvements
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div>
-                          <Label>Current Prompt</Label>
-                          <Textarea
-                            value={prompt}
-                            readOnly
-                            className="font-mono text-sm mt-2 min-h-[150px] bg-muted"
-                          />
-                        </div>
-                        <div>
-                          <Label>Suggested Improvements</Label>
-                          <Textarea
-                            value={improvedPrompt}
-                            onChange={(e) => setImprovedPrompt(e.target.value)}
-                            className="font-mono text-sm mt-2 min-h-[150px]"
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button onClick={handleApplyImprovement} className="flex-1">
-                            Apply Improvements
-                          </Button>
-                          <Button onClick={handleImprovePrompt} variant="outline" disabled={isGenerating}>
-                            {isGenerating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                            Regenerate
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="copilotDesc">What should the AI do?</Label>
+                      <Textarea id="copilotDesc" value={copilotDescription} onChange={e => setCopilotDescription(e.target.value)} placeholder="e.g., Help customers with technical support issues, be empathetic and provide clear step-by-step solutions" rows={4} />
+                    </div>
                   </div>
+                  <DialogFooter>
+                    <Button onClick={handleGeneratePrompt} disabled={isGenerating}>
+                      {isGenerating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Generate Prompt
+                    </Button>
+                  </DialogFooter>
                 </DialogContent>
               </Dialog>
 
@@ -435,6 +340,5 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
+    </div>;
 }
