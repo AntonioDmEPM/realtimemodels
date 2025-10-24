@@ -139,6 +139,98 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_chunks: {
+        Row: {
+          content: string
+          created_at: string
+          document_id: string | null
+          embedding: string | null
+          id: string
+          knowledge_base_id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          document_id?: string | null
+          embedding?: string | null
+          id?: string
+          knowledge_base_id: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          document_id?: string | null
+          embedding?: string | null
+          id?: string
+          knowledge_base_id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_chunks_knowledge_base_id_fkey"
+            columns: ["knowledge_base_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_bases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_documents: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          knowledge_base_id: string
+          updated_at: string
+          upload_status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          knowledge_base_id: string
+          updated_at?: string
+          upload_status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          knowledge_base_id?: string
+          updated_at?: string
+          upload_status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_documents_knowledge_base_id_fkey"
+            columns: ["knowledge_base_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_bases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           company: string | null
@@ -308,7 +400,6 @@ export type Database = {
         }
         Returns: {
           content: string
-          document_id: string
           id: string
           metadata: Json
           similarity: number
