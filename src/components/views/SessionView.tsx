@@ -88,11 +88,11 @@ export function SessionView({
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Main Content */}
+      <div className="flex-1 flex gap-4 overflow-hidden">
+        {/* LEFT SIDE - Conversation & Sentiment */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <ScrollArea className="flex-1 p-4">
-            <div className="max-w-4xl mx-auto space-y-4">
+            <div className="space-y-4">
               {/* Sentiment Indicator */}
               <SentimentIndicator sentiment={currentSentiment} />
 
@@ -102,27 +102,13 @@ export function SessionView({
                   events={events}
                 />
               </Card>
-
-              {/* Analytics */}
-              <div className="border rounded-lg overflow-hidden">
-                <AnalyticsPanel
-                  currentStats={currentStats}
-                  sessionStats={sessionStats}
-                  tokenDataPoints={tokenDataPoints}
-                  sessionStartTime={sessionStartTime}
-                  isActive={isConnected}
-                  totalInputTokens={totalInputTokens}
-                  totalOutputTokens={totalOutputTokens}
-                  events={events}
-                />
-              </div>
             </div>
           </ScrollArea>
 
           {/* Chat Input (for chat mode) */}
           {mode === 'chat' && (
             <div className="border-t p-4">
-              <div className="max-w-4xl mx-auto flex gap-2">
+              <div className="flex gap-2">
                 <Input
                   value={chatInput}
                   onChange={(e) => onChatInputChange(e.target.value)}
@@ -145,6 +131,24 @@ export function SessionView({
               </div>
             </div>
           )}
+        </div>
+
+        {/* RIGHT SIDE - Analytics (Fixed with independent scrolling) */}
+        <div className="w-[500px] flex flex-col overflow-hidden border-l">
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-4">
+              <AnalyticsPanel
+                currentStats={currentStats}
+                sessionStats={sessionStats}
+                tokenDataPoints={tokenDataPoints}
+                sessionStartTime={sessionStartTime}
+                isActive={isConnected}
+                totalInputTokens={totalInputTokens}
+                totalOutputTokens={totalOutputTokens}
+                events={events}
+              />
+            </div>
+          </ScrollArea>
         </div>
       </div>
     </div>
