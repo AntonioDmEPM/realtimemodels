@@ -36,7 +36,7 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
   const [coilotDialogOpen, setCopilotDialogOpen] = useState(false);
   const [promptName, setPromptName] = useState('');
   const [promptDescription, setPromptDescription] = useState('');
-  const [copilotDescription, setCopilotDescription] = useState('');
+  const [improvedPrompt, setImprovedPrompt] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
@@ -174,12 +174,12 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
     }
   };
 
-  // Generate prompt using AI co-pilot
-  const handleGeneratePrompt = async () => {
-    if (!copilotDescription.trim()) {
+  // Improve prompt using AI co-pilot
+  const handleImprovePrompt = async () => {
+    if (!prompt.trim()) {
       toast({
-        title: "Description required",
-        description: "Please describe what you want the AI to do",
+        title: "No prompt to improve",
+        description: "Please enter a prompt first",
         variant: "destructive"
       });
       return;
@@ -188,30 +188,38 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('suggest-prompt', {
-        body: { description: copilotDescription }
+        body: { currentPrompt: prompt }
       });
 
       if (error) throw error;
 
       if (data.prompt) {
-        setPrompt(data.prompt);
-        setCopilotDialogOpen(false);
-        setCopilotDescription('');
+        setImprovedPrompt(data.prompt);
         toast({
-          title: "Prompt generated!",
-          description: "Review and save the suggested prompt"
+          title: "Improvements suggested!",
+          description: "Review the suggestions below"
         });
       }
     } catch (error) {
-      console.error('Error generating prompt:', error);
+      console.error('Error improving prompt:', error);
       toast({
         title: "Error",
-        description: "Failed to generate prompt suggestion",
+        description: "Failed to generate improvements",
         variant: "destructive"
       });
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleApplyImprovement = () => {
+    setPrompt(improvedPrompt);
+    setImprovedPrompt('');
+    setCopilotDialogOpen(false);
+    toast({
+      title: "Applied!",
+      description: "Improvements have been applied to your prompt"
+    });
   };
 
   return (
@@ -352,38 +360,69 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
                 </DialogContent>
               </Dialog>
 
-              <Dialog open={coilotDialogOpen} onOpenChange={setCopilotDialogOpen}>
+              <Dialog open={coilotDialogOpen} onOpenChange={(open) => {
+                setCopilotDialogOpen(open);
+                if (!open) setImprovedPrompt('');
+              }}>
                 <DialogTrigger asChild>
                   <Button variant="outline">
                     <Sparkles className="h-4 w-4 mr-2" />
                     AI Co-pilot
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-4xl max-h-[80vh]">
                   <DialogHeader>
                     <DialogTitle>Prompt Co-pilot</DialogTitle>
                     <DialogDescription>
-                      Describe what you want your AI assistant to do, and we'll suggest a prompt
+                      AI will analyze your current prompt and suggest improvements
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="copilotDesc">What should the AI do?</Label>
-                      <Textarea
-                        id="copilotDesc"
-                        value={copilotDescription}
-                        onChange={(e) => setCopilotDescription(e.target.value)}
-                        placeholder="e.g., Help customers with technical support issues, be empathetic and provide clear step-by-step solutions"
-                        rows={4}
-                      />
-                    </div>
+                  <div className="space-y-4 overflow-y-auto max-h-[60vh]">
+                    {!improvedPrompt ? (
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Current Prompt</Label>
+                          <Textarea
+                            value={prompt}
+                            readOnly
+                            className="font-mono text-sm mt-2 min-h-[200px]"
+                          />
+                        </div>
+                        <Button onClick={handleImprovePrompt} disabled={isGenerating} className="w-full">
+                          {isGenerating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                          Analyze & Suggest Improvements
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Current Prompt</Label>
+                          <Textarea
+                            value={prompt}
+                            readOnly
+                            className="font-mono text-sm mt-2 min-h-[150px] bg-muted"
+                          />
+                        </div>
+                        <div>
+                          <Label>Suggested Improvements</Label>
+                          <Textarea
+                            value={improvedPrompt}
+                            onChange={(e) => setImprovedPrompt(e.target.value)}
+                            className="font-mono text-sm mt-2 min-h-[150px]"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button onClick={handleApplyImprovement} className="flex-1">
+                            Apply Improvements
+                          </Button>
+                          <Button onClick={handleImprovePrompt} variant="outline" disabled={isGenerating}>
+                            {isGenerating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                            Regenerate
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <DialogFooter>
-                    <Button onClick={handleGeneratePrompt} disabled={isGenerating}>
-                      {isGenerating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Generate Prompt
-                    </Button>
-                  </DialogFooter>
                 </DialogContent>
               </Dialog>
 

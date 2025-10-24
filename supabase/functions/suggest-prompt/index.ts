@@ -12,10 +12,10 @@ serve(async (req) => {
   }
 
   try {
-    const { description } = await req.json();
+    const { currentPrompt } = await req.json();
     
-    if (!description) {
-      throw new Error("Description is required");
+    if (!currentPrompt) {
+      throw new Error("Current prompt is required");
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -23,7 +23,7 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    console.log('Generating prompt suggestion for:', description);
+    console.log('Analyzing prompt for improvements');
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -36,22 +36,22 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert AI prompt engineer. Your task is to create effective, clear, and comprehensive system prompts for AI assistants based on the user's description of what they want the AI to do.
+            content: `You are an expert AI prompt engineer. Your task is to analyze system prompts and suggest improvements to make them more effective.
 
-Guidelines for creating prompts:
-- Be specific and clear about the AI's role and responsibilities
-- Include relevant context and constraints
-- Define the desired tone and style
-- Specify output format if relevant
-- Include examples or guidelines when helpful
-- Keep prompts concise but comprehensive
-- Focus on actionable instructions
+When reviewing a prompt, consider:
+- Clarity: Is the AI's role and responsibilities clearly defined?
+- Specificity: Are instructions specific enough to guide behavior?
+- Structure: Is the prompt well-organized and easy to parse?
+- Completeness: Are all necessary constraints and guidelines included?
+- Tone & Style: Is the desired communication style clearly specified?
+- Examples: Would examples or specific scenarios help clarify expectations?
+- Edge cases: Are boundary conditions and limitations addressed?
 
-Return ONLY the prompt text, without any additional explanation or metadata.`
+Return ONLY the improved prompt text, incorporating all enhancements. Do not include explanations, just the refined prompt that can directly replace the original.`
           },
           {
             role: 'user',
-            content: `Create a system prompt for an AI assistant with the following purpose:\n\n${description}`
+            content: `Please analyze and improve this system prompt:\n\n${currentPrompt}`
           }
         ],
       }),
