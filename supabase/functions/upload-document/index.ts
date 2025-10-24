@@ -82,14 +82,14 @@ serve(async (req) => {
 
     // Create document record
     const { data: document, error: docError } = await supabase
-      .from('documents')
+      .from('knowledge_documents')
       .insert({
         knowledge_base_id: knowledgeBaseId,
         user_id: user.id,
-        filename: file.name,
+        file_name: file.name,
         file_type: file.type,
         file_size: file.size,
-        status: 'processing'
+        upload_status: 'processing'
       })
       .select()
       .single();
@@ -137,7 +137,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'text-embedding-ada-002',
+            model: 'text-embedding-3-small',
             input: chunk
           }),
         });
@@ -153,14 +153,14 @@ serve(async (req) => {
 
         // Store chunk with embedding (convert to pgvector format)
         const { error: chunkError } = await supabase
-          .from('document_chunks')
+          .from('knowledge_chunks')
           .insert({
+            user_id: user.id,
             document_id: document.id,
             knowledge_base_id: knowledgeBaseId,
-            chunk_index: i,
             content: chunk,
             embedding: `[${embedding.join(',')}]`,
-            metadata: { chunk_size: chunk.length }
+            metadata: { chunk_index: i, chunk_size: chunk.length }
           });
 
         if (chunkError) {
@@ -175,11 +175,9 @@ serve(async (req) => {
 
     // Update document status
     const { error: updateError } = await supabase
-      .from('documents')
+      .from('knowledge_documents')
       .update({
-        status: successCount === chunks.length ? 'completed' : 'partial',
-        chunk_count: successCount,
-        error_message: successCount < chunks.length ? `Only ${successCount}/${chunks.length} chunks processed` : null
+        upload_status: successCount === chunks.length ? 'completed' : 'partial'
       })
       .eq('id', document.id);
 
