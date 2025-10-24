@@ -1132,7 +1132,7 @@ export default function Index() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <SidebarTrigger />
-                  <h1 className="text-2xl font-bold">Real Time APIs</h1>
+                  <h1 className="text-2xl font-bold">EPAM AI/Run.Transform SandBox</h1>
                 </div>
                 <HeaderMenu
                   userEmail={user.email}
