@@ -282,19 +282,18 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
   };
 
   return (
-    <>
-      <CardHeader>
-        <CardTitle>Conversation</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className="flex flex-col h-full">
+      <div className="border-b p-4">
+        <h3 className="font-semibold">Conversation</h3>
+      </div>
+      <div className="flex-1 p-4">
         {messages.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">
             No conversation yet. Start a session to see messages here.
           </div>
         ) : (
-          <ScrollArea className="h-[500px] pr-4">
-            <TooltipProvider>
-              <div className="space-y-4">
+          <TooltipProvider>
+            <div className="space-y-4">
                 {messages.map((message) => (
                   <div
                     key={message.id}
@@ -370,11 +369,10 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                     </div>
                   </div>
                 ))}
-              </div>
-            </TooltipProvider>
-          </ScrollArea>
+            </div>
+          </TooltipProvider>
         )}
-      </CardContent>
-    </>
+      </div>
+    </div>
   );
 }
