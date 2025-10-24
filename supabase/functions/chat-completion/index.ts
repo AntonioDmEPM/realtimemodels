@@ -148,6 +148,34 @@ serve(async (req) => {
             required: ["query"]
           }
         }
+      },
+      {
+        type: "function",
+        function: {
+          name: "detect_sentiment",
+          description: "Analyze the sentiment of the user's message. This helps adapt the conversational tone appropriately.",
+          parameters: {
+            type: "object",
+            properties: {
+              sentiment: {
+                type: "string",
+                enum: ["positive", "neutral", "negative", "mixed"],
+                description: "The detected sentiment of the user's message"
+              },
+              confidence: {
+                type: "number",
+                minimum: 0,
+                maximum: 1,
+                description: "Confidence level of the sentiment detection (0-1)"
+              },
+              reason: {
+                type: "string",
+                description: "Brief explanation for the detected sentiment"
+              }
+            },
+            required: ["sentiment", "confidence", "reason"]
+          }
+        }
       }
     ];
     
@@ -249,6 +277,21 @@ serve(async (req) => {
           ...data,
           requires_tool: true,
           tool_name: 'search_knowledge_base',
+          tool_arguments: args
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      if (toolCall.function.name === 'detect_sentiment') {
+        console.log('AI requested sentiment detection:', toolCall.function.arguments);
+        const args = JSON.parse(toolCall.function.arguments);
+        
+        // Return tool call to client for execution
+        return new Response(JSON.stringify({
+          ...data,
+          requires_tool: true,
+          tool_name: 'detect_sentiment',
           tool_arguments: args
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

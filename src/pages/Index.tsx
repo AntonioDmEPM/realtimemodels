@@ -697,6 +697,101 @@ export default function Index() {
           return;
         }
         
+        // Check if AI is requesting sentiment detection
+        if (data.requires_tool && data.tool_name === 'detect_sentiment' && data.tool_arguments) {
+          console.log('AI detected sentiment:', data.tool_arguments);
+          
+          // Get the tool call ID from the response
+          const toolCallId = data.choices[0]?.message?.tool_calls?.[0]?.id;
+          if (!toolCallId) {
+            console.error('No tool_call_id found in response');
+            toast({
+              title: 'Error',
+              description: 'Invalid tool call response',
+              variant: 'destructive'
+            });
+            return;
+          }
+          
+          // Send sentiment acknowledgment back to AI
+          const { data: finalData, error: finalError } = await supabase.functions.invoke('chat-completion', {
+            body: {
+              messages: [
+                { role: 'system', content: botPrompt },
+                ...chatMessages,
+                userMessage,
+                // Include the assistant's message with the tool call
+                { 
+                  role: 'assistant', 
+                  content: '',
+                  tool_calls: data.choices[0].message.tool_calls
+                },
+                // Add the tool result
+                {
+                  role: 'tool',
+                  tool_call_id: toolCallId,
+                  content: JSON.stringify({ acknowledged: true, ...data.tool_arguments })
+                }
+              ],
+              model: selectedModel,
+              knowledgeBaseId: knowledgeBaseId
+            }
+          });
+
+          if (finalError) throw finalError;
+
+          const finalMessage = finalData.choices[0]?.message?.content;
+          if (finalMessage) {
+            setChatMessages(prev => [...prev, {
+              role: 'assistant',
+              content: finalMessage
+            }]);
+
+            addEvent({
+              type: 'response.done',
+              response: {
+                output: [{
+                  type: 'message',
+                  role: 'assistant',
+                  content: [{
+                    type: 'text',
+                    text: finalMessage
+                  }]
+                }],
+                usage: finalData.usage
+              }
+            });
+
+            if (finalData.usage) {
+              const usage = finalData.usage;
+              const newStats = {
+                audioInputTokens: 0,
+                textInputTokens: usage.prompt_tokens || 0,
+                cachedInputTokens: 0,
+                audioOutputTokens: 0,
+                textOutputTokens: usage.completion_tokens || 0
+              };
+              const costs = calculateCosts(newStats, pricingConfig);
+              const fullStats = {
+                ...newStats,
+                ...costs
+              };
+              setCurrentStats(fullStats);
+              setSessionStats(prev => ({
+                audioInputTokens: prev.audioInputTokens,
+                textInputTokens: prev.textInputTokens + newStats.textInputTokens,
+                cachedInputTokens: prev.cachedInputTokens,
+                audioOutputTokens: prev.audioOutputTokens,
+                textOutputTokens: prev.textOutputTokens + newStats.textOutputTokens,
+                inputCost: prev.inputCost + costs.inputCost,
+                outputCost: prev.outputCost + costs.outputCost,
+                totalCost: prev.totalCost + costs.totalCost
+              }));
+            }
+          }
+          return;
+        }
+        
         // Check if AI is requesting knowledge base search
         if (data.requires_tool && data.tool_name === 'search_knowledge_base' && data.tool_arguments) {
           console.log('AI requested knowledge base search:', data.tool_arguments);
