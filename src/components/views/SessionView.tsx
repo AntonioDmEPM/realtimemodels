@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import AudioIndicator from '@/components/AudioIndicator';
 import ConversationTimer from '@/components/ConversationTimer';
 import SentimentIndicator from '@/components/SentimentIndicator';
@@ -88,69 +89,75 @@ export function SessionView({
         </div>
       </div>
 
-      <div className="flex-1 flex gap-4 overflow-hidden">
+      <ResizablePanelGroup direction="horizontal" className="flex-1">
         {/* LEFT SIDE - Conversation & Sentiment */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-4">
-              {/* Sentiment Indicator */}
-              <SentimentIndicator sentiment={currentSentiment} />
+        <ResizablePanel defaultSize={55} minSize={30}>
+          <div className="h-full flex flex-col overflow-hidden">
+            <ScrollArea className="flex-1 p-4">
+              <div className="space-y-4">
+                {/* Sentiment Indicator */}
+                <SentimentIndicator sentiment={currentSentiment} />
 
-              {/* Conversation */}
-              <Card>
-                <ConversationMessages
-                  events={events}
-                />
-              </Card>
-            </div>
-          </ScrollArea>
-
-          {/* Chat Input (for chat mode) */}
-          {mode === 'chat' && (
-            <div className="border-t p-4">
-              <div className="flex gap-2">
-                <Input
-                  value={chatInput}
-                  onChange={(e) => onChatInputChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      onSendMessage();
-                    }
-                  }}
-                  placeholder="Type your message..."
-                  disabled={!isConnected}
-                />
-                <Button
-                  onClick={onSendMessage}
-                  disabled={!isConnected || !chatInput.trim()}
-                  size="icon"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+                {/* Conversation */}
+                <Card>
+                  <ConversationMessages
+                    events={events}
+                  />
+                </Card>
               </div>
-            </div>
-          )}
-        </div>
+            </ScrollArea>
+
+            {/* Chat Input (for chat mode) */}
+            {mode === 'chat' && (
+              <div className="border-t p-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={chatInput}
+                    onChange={(e) => onChatInputChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        onSendMessage();
+                      }
+                    }}
+                    placeholder="Type your message..."
+                    disabled={!isConnected}
+                  />
+                  <Button
+                    onClick={onSendMessage}
+                    disabled={!isConnected || !chatInput.trim()}
+                    size="icon"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
 
         {/* RIGHT SIDE - Analytics (Fixed with independent scrolling) */}
-        <div className="w-[500px] flex flex-col overflow-hidden border-l">
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-4">
-              <AnalyticsPanel
-                currentStats={currentStats}
-                sessionStats={sessionStats}
-                tokenDataPoints={tokenDataPoints}
-                sessionStartTime={sessionStartTime}
-                isActive={isConnected}
-                totalInputTokens={totalInputTokens}
-                totalOutputTokens={totalOutputTokens}
-                events={events}
-              />
-            </div>
-          </ScrollArea>
-        </div>
-      </div>
+        <ResizablePanel defaultSize={45} minSize={25}>
+          <div className="h-full flex flex-col overflow-hidden">
+            <ScrollArea className="flex-1 p-4">
+              <div className="space-y-4">
+                <AnalyticsPanel
+                  currentStats={currentStats}
+                  sessionStats={sessionStats}
+                  tokenDataPoints={tokenDataPoints}
+                  sessionStartTime={sessionStartTime}
+                  isActive={isConnected}
+                  totalInputTokens={totalInputTokens}
+                  totalOutputTokens={totalOutputTokens}
+                  events={events}
+                />
+              </div>
+            </ScrollArea>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }
