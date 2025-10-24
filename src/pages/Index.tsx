@@ -696,6 +696,136 @@ export default function Index() {
           }
           return;
         }
+        
+        // Check if AI is requesting knowledge base search
+        if (data.requires_tool && data.tool_name === 'search_knowledge_base' && data.tool_arguments) {
+          console.log('AI requested knowledge base search:', data.tool_arguments);
+          
+          // Get the tool call ID from the response
+          const toolCallId = data.choices[0]?.message?.tool_calls?.[0]?.id;
+          if (!toolCallId) {
+            console.error('No tool_call_id found in response');
+            toast({
+              title: 'Error',
+              description: 'Invalid tool call response',
+              variant: 'destructive'
+            });
+            return;
+          }
+          
+          if (!knowledgeBaseId) {
+            toast({
+              title: 'No Knowledge Base',
+              description: 'Please select a knowledge base first',
+              variant: 'destructive'
+            });
+            return;
+          }
+          
+          // Perform knowledge base search
+          const { data: kbSearchData, error: kbSearchError } = await supabase.functions.invoke('search-knowledge', {
+            body: { 
+              query: data.tool_arguments.query,
+              knowledge_base_id: knowledgeBaseId,
+              match_threshold: 0.5,
+              match_count: 5
+            }
+          });
+
+          if (kbSearchError) {
+            console.error('Knowledge base search error:', kbSearchError);
+            toast({
+              title: 'Search Failed',
+              description: 'Failed to search knowledge base',
+              variant: 'destructive'
+            });
+            return;
+          }
+
+          // Format knowledge base results
+          const formattedKbResults = `\n\n## Knowledge Base Search Results:\n\n` +
+            (kbSearchData.results?.map((r: any, i: number) => 
+              `${i + 1}. **Relevance: ${(r.similarity * 100).toFixed(1)}%**\n   ${r.content}\n   ${r.metadata?.document_name ? `Source: ${r.metadata.document_name}` : ''}`
+            ).join('\n\n') || 'No results found');
+
+          // Send search results back to AI using proper tool calling format
+          const { data: finalData, error: finalError } = await supabase.functions.invoke('chat-completion', {
+            body: {
+              messages: [
+                { role: 'system', content: botPrompt },
+                ...chatMessages,
+                userMessage,
+                // Include the assistant's message with the tool call
+                { 
+                  role: 'assistant', 
+                  content: '',
+                  tool_calls: data.choices[0].message.tool_calls
+                },
+                // Add the tool result
+                {
+                  role: 'tool',
+                  tool_call_id: toolCallId,
+                  content: formattedKbResults
+                }
+              ],
+              model: selectedModel,
+              knowledgeBaseId: knowledgeBaseId
+            }
+          });
+
+          if (finalError) throw finalError;
+
+          const finalMessage = finalData.choices[0]?.message?.content;
+          if (finalMessage) {
+            setChatMessages(prev => [...prev, {
+              role: 'assistant',
+              content: finalMessage
+            }]);
+
+            addEvent({
+              type: 'response.done',
+              response: {
+                output: [{
+                  type: 'message',
+                  role: 'assistant',
+                  content: [{
+                    type: 'text',
+                    text: finalMessage
+                  }]
+                }],
+                usage: finalData.usage
+              }
+            });
+
+            if (finalData.usage) {
+              const usage = finalData.usage;
+              const newStats = {
+                audioInputTokens: 0,
+                textInputTokens: usage.prompt_tokens || 0,
+                cachedInputTokens: 0,
+                audioOutputTokens: 0,
+                textOutputTokens: usage.completion_tokens || 0
+              };
+              const costs = calculateCosts(newStats, pricingConfig);
+              const fullStats = {
+                ...newStats,
+                ...costs
+              };
+              setCurrentStats(fullStats);
+              setSessionStats(prev => ({
+                audioInputTokens: prev.audioInputTokens,
+                textInputTokens: prev.textInputTokens + newStats.textInputTokens,
+                cachedInputTokens: prev.cachedInputTokens,
+                audioOutputTokens: prev.audioOutputTokens,
+                textOutputTokens: prev.textOutputTokens + newStats.textOutputTokens,
+                inputCost: prev.inputCost + costs.inputCost,
+                outputCost: prev.outputCost + costs.outputCost,
+                totalCost: prev.totalCost + costs.totalCost
+              }));
+            }
+          }
+          return;
+        }
 
         const assistantMessage = data.choices[0]?.message?.content;
         if (assistantMessage) {

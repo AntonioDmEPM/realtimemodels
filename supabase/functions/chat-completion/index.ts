@@ -221,7 +221,7 @@ serve(async (req) => {
       };
     }
     
-    // Define web search tool
+    // Define tools - web search and optionally knowledge base search
     const tools = [
       {
         type: "function",
@@ -241,6 +241,27 @@ serve(async (req) => {
         }
       }
     ];
+    
+    // Add knowledge base search tool if configured
+    if (knowledgeBaseId && OPENAI_API_KEY) {
+      tools.push({
+        type: "function",
+        function: {
+          name: "search_knowledge_base",
+          description: "Search the knowledge base for relevant information from uploaded documents. Use this when the user asks questions that might be answered by the knowledge base content.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description: "The search query to find relevant information in the knowledge base"
+              }
+            },
+            required: ["query"]
+          }
+        }
+      });
+    }
 
     console.log('Calling Lovable AI Gateway...');
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -291,7 +312,7 @@ serve(async (req) => {
     const data = await response.json();
     console.log('Lovable AI success - completion generated');
     
-    // Check if AI wants to use web search tool
+    // Check if AI wants to use tools
     if (data.choices?.[0]?.message?.tool_calls) {
       const toolCall = data.choices[0].message.tool_calls[0];
       
@@ -304,6 +325,21 @@ serve(async (req) => {
           ...data,
           requires_tool: true,
           tool_name: 'web_search',
+          tool_arguments: args
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      if (toolCall.function.name === 'search_knowledge_base') {
+        console.log('AI requested knowledge base search:', toolCall.function.arguments);
+        const args = JSON.parse(toolCall.function.arguments);
+        
+        // Return tool call to client for execution
+        return new Response(JSON.stringify({
+          ...data,
+          requires_tool: true,
+          tool_name: 'search_knowledge_base',
           tool_arguments: args
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

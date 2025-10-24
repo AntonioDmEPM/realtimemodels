@@ -1,10 +1,13 @@
 import { KnowledgeBaseManager } from '@/components/KnowledgeBaseManager';
+import { KnowledgeBaseTest } from '@/components/KnowledgeBaseTest';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const KnowledgeBase = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const testKbId = searchParams.get('test');
 
   return (
     <div className="container mx-auto p-6">
@@ -18,6 +21,13 @@ const KnowledgeBase = () => {
           Back to Conversations
         </Button>
       </div>
+      
+      {testKbId && (
+        <div className="mb-6">
+          <KnowledgeBaseTest knowledgeBaseId={testKbId} />
+        </div>
+      )}
+      
       <KnowledgeBaseManager />
     </div>
   );
