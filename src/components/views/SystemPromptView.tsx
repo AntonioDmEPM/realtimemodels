@@ -222,12 +222,8 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Bot Instructions</CardTitle>
-          </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="botPrompt">System Prompt</Label>
               <div className="border border-muted-foreground/20 rounded-md overflow-hidden">
                 <Editor
                   height="500px"
