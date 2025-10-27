@@ -91,6 +91,11 @@ export async function createRealtimeSession(
     try {
       const eventData = JSON.parse(e.data);
       
+      // Log transcription and conversation item events for debugging
+      if (eventData.type?.includes('transcription') || eventData.type?.includes('conversation.item')) {
+        console.log('📝 Transcription/Item Event:', eventData.type, eventData);
+      }
+      
       // Send session.update with instructions after receiving session.created
       if (eventData.type === 'session.created' && !sessionCreated) {
         sessionCreated = true;
@@ -104,9 +109,9 @@ export async function createRealtimeSession(
             modalities: realtimeSettings?.modalities || (textOnly ? ['text'] : ['audio', 'text']),
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
-            input_audio_transcription: realtimeSettings?.inputAudioTranscription 
-              ? { model: 'whisper-1' } 
-              : (textOnly ? null : { model: 'whisper-1' }),
+            input_audio_transcription: textOnly 
+              ? null 
+              : (realtimeSettings?.inputAudioTranscription !== false ? { model: 'whisper-1' } : null),
             turn_detection: realtimeSettings?.turnDetection || (textOnly ? null : {
               type: 'server_vad',
               threshold: 0.5,

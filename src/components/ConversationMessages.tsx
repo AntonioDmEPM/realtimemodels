@@ -90,8 +90,9 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
         pendingKnowledge.push(...(event.data.results || []));
       }
 
-      // Capture user input transcriptions from completed events
-      if (eventType === 'conversation.item.input_audio_transcription.completed') {
+      // Capture user input transcriptions from completed events (try both event types)
+      if (eventType === 'conversation.item.input_audio_transcription.completed' || 
+          eventType === 'conversation.item.input_audio_transcription.done') {
         console.log('Found user transcription:', event.data.transcript, 'at timestamp:', event.timestamp);
         
         // Find the closest sentiment by timestamp (within 5 seconds before this message)
@@ -205,6 +206,14 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
       if (eventType === 'conversation.item.created' && event.data.item?.role === 'user') {
         const item = event.data.item;
         console.log('Found conversation.item.created for user:', item);
+        
+        // Check if this is an audio item - if so, skip it as we'll get the transcript from the transcription event
+        const hasAudioContent = item.content?.some((c: any) => c.type === 'input_audio');
+        if (hasAudioContent && !item.content?.some((c: any) => c.transcript)) {
+          console.log('Skipping audio item without transcript - waiting for transcription event');
+          return; // Skip audio items without transcripts - we'll get them from the transcription completed event
+        }
+        
         if (item.content) {
           for (const content of item.content) {
             if (content.type === 'input_text' && content.text) {
