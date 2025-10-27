@@ -109,9 +109,6 @@ export async function createRealtimeSession(
             modalities: realtimeSettings?.modalities || (textOnly ? ['text'] : ['audio', 'text']),
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
-            input_audio_transcription: textOnly 
-              ? null 
-              : (realtimeSettings?.inputAudioTranscription !== false ? { model: 'whisper-1' } : null),
             turn_detection: realtimeSettings?.turnDetection || (textOnly ? null : {
               type: 'server_vad',
               threshold: 0.5,
@@ -122,6 +119,11 @@ export async function createRealtimeSession(
             max_response_output_tokens: realtimeSettings?.maxOutputTokens || 'inf'
           }
         };
+
+        // Add input_audio_transcription only if not in text-only mode and not explicitly disabled
+        if (!textOnly && realtimeSettings?.inputAudioTranscription !== false) {
+          sessionUpdate.session.input_audio_transcription = { model: 'whisper-1' };
+        }
 
         // Add tools conditionally based on settings
         sessionUpdate.session.tools = [];
