@@ -80,7 +80,13 @@ serve(async (req) => {
     
     const validatedModel = model && allowedModels.includes(model) ? model : 'gpt-4o-realtime-preview-2024-12-17';
     const validatedVoice = voice && allowedVoices.includes(voice) ? voice : 'ash';
-    const sessionInstructions = instructions || 'You are a helpful assistant. When you need current information or real-time data, use the web_search tool.';
+    
+    // Use provided instructions or fallback to default
+    const sessionInstructions = (instructions && typeof instructions === 'string' && instructions.trim().length > 0) 
+      ? instructions 
+      : 'You are a helpful assistant. When you need current information or real-time data, use the web_search tool.';
+    
+    console.log('Using instructions:', sessionInstructions.substring(0, 100) + '...');
     
     console.log('Validated params - model:', validatedModel, 'voice:', validatedVoice);
     console.log('Calling OpenAI API...');

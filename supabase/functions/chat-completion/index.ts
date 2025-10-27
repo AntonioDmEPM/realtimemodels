@@ -81,8 +81,8 @@ serve(async (req) => {
       throw new Error('Lovable AI key not configured');
     }
 
-    const { messages, model, knowledgeBaseId } = await req.json();
-    console.log('Request params - model:', model, 'messages count:', messages?.length);
+    const { messages, model, knowledgeBaseId, chatSettings, searchEnabled } = await req.json();
+    console.log('Request params - model:', model, 'messages count:', messages?.length, 'searchEnabled:', searchEnabled);
     
     // Input validation
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -130,9 +130,12 @@ serve(async (req) => {
 
     // Note: Knowledge base search is now handled via tool calling only (search_knowledge_base tool)
     
-    // Define tools - web search and optionally knowledge base search
-    const tools = [
-      {
+    // Define tools - conditionally add based on settings
+    const tools = [];
+    
+    // Only add web search if enabled (defaults to true if not specified)
+    if (searchEnabled !== false) {
+      tools.push({
         type: "function",
         function: {
           name: "web_search",
@@ -148,36 +151,38 @@ serve(async (req) => {
             required: ["query"]
           }
         }
-      },
-      {
-        type: "function",
-        function: {
-          name: "detect_sentiment",
-          description: "Analyze the sentiment of the user's message. This helps adapt the conversational tone appropriately.",
-          parameters: {
-            type: "object",
-            properties: {
-              sentiment: {
-                type: "string",
-                enum: ["positive", "neutral", "negative", "mixed"],
-                description: "The detected sentiment of the user's message"
-              },
-              confidence: {
-                type: "number",
-                minimum: 0,
-                maximum: 1,
-                description: "Confidence level of the sentiment detection (0-1)"
-              },
-              reason: {
-                type: "string",
-                description: "Brief explanation for the detected sentiment"
-              }
+      });
+    }
+    
+    // Always add sentiment detection
+    tools.push({
+      type: "function",
+      function: {
+        name: "detect_sentiment",
+        description: "Analyze the sentiment of the user's message. This helps adapt the conversational tone appropriately.",
+        parameters: {
+          type: "object",
+          properties: {
+            sentiment: {
+              type: "string",
+              enum: ["positive", "neutral", "negative", "mixed"],
+              description: "The detected sentiment of the user's message"
             },
-            required: ["sentiment", "confidence", "reason"]
-          }
+            confidence: {
+              type: "number",
+              minimum: 0,
+              maximum: 1,
+              description: "Confidence level of the sentiment detection (0-1)"
+            },
+            reason: {
+              type: "string",
+              description: "Brief explanation for the detected sentiment"
+            }
+          },
+          required: ["sentiment", "confidence", "reason"]
         }
       }
-    ];
+    });
     
     // Add knowledge base search tool if configured
     if (knowledgeBaseId && OPENAI_API_KEY) {
@@ -200,19 +205,49 @@ serve(async (req) => {
       });
     }
 
-    console.log('Calling Lovable AI Gateway...');
+    // Build request body with optional chat settings
+    const requestBody: any = {
+      model: validatedModel,
+      messages: messages,
+      tools,
+      tool_choice: "auto"
+    };
+    
+    // Apply chat model settings if provided
+    if (chatSettings) {
+      if (typeof chatSettings.temperature === 'number') {
+        requestBody.temperature = chatSettings.temperature;
+      }
+      if (typeof chatSettings.topP === 'number') {
+        requestBody.top_p = chatSettings.topP;
+      }
+      if (typeof chatSettings.maxOutputTokens === 'number') {
+        requestBody.max_tokens = chatSettings.maxOutputTokens;
+      }
+      if (typeof chatSettings.frequencyPenalty === 'number') {
+        requestBody.frequency_penalty = chatSettings.frequencyPenalty;
+      }
+      if (typeof chatSettings.presencePenalty === 'number') {
+        requestBody.presence_penalty = chatSettings.presencePenalty;
+      }
+      if (Array.isArray(chatSettings.stopSequences) && chatSettings.stopSequences.length > 0) {
+        requestBody.stop = chatSettings.stopSequences;
+      }
+    }
+    
+    console.log('Calling Lovable AI Gateway with settings:', { 
+      model: requestBody.model, 
+      hasTemperature: !!requestBody.temperature,
+      hasTopP: !!requestBody.top_p 
+    });
+    
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: validatedModel,
-        messages: messages,
-        tools,
-        tool_choice: "auto"
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     console.log('Lovable AI response status:', response.status);

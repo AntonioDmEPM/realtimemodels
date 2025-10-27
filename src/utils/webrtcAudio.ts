@@ -66,7 +66,8 @@ export async function createRealtimeSession(
   supabaseToken: string,
   knowledgeBaseId?: string,
   textOnly: boolean = false,
-  realtimeSettings?: any
+  realtimeSettings?: any,
+  searchEnabled: boolean = true
 ): Promise<{ pc: RTCPeerConnection; dc: RTCDataChannel }> {
   const pc = new RTCPeerConnection();
 
@@ -117,9 +118,12 @@ export async function createRealtimeSession(
           }
         };
 
-        // Add tools (web search, sentiment detection, and optionally knowledge base search)
-        sessionUpdate.session.tools = [
-          {
+        // Add tools conditionally based on settings
+        sessionUpdate.session.tools = [];
+        
+        // Only add web search if enabled
+        if (searchEnabled) {
+          sessionUpdate.session.tools.push({
             type: 'function',
             name: 'web_search',
             description: 'Search the web for current information, news, or any real-time data. Use this when you need up-to-date information beyond your training cutoff or when the user asks about current events.',
@@ -133,32 +137,34 @@ export async function createRealtimeSession(
               },
               required: ['query']
             }
-          },
-          {
-            type: 'function',
-            name: 'detect_sentiment',
-            description: 'CRITICAL: Call this function IMMEDIATELY after EVERY user message to analyze their emotional tone. This is required for tone adaptation. Analyze whether the user sounds positive, neutral, negative, or mixed.',
-            parameters: {
-              type: 'object',
-              properties: {
-                sentiment: {
-                  type: 'string',
-                  enum: ['positive', 'neutral', 'negative', 'mixed'],
-                  description: 'The emotional sentiment in the user\'s last message'
-                },
-                confidence: {
-                  type: 'number',
-                  description: 'Confidence level from 0 to 1'
-                },
-                reason: {
-                  type: 'string',
-                  description: 'Brief explanation (e.g., "User expressing frustration", "Enthusiastic tone", "Casual conversation")'
-                }
+          });
+        }
+        
+        // Always add sentiment detection
+        sessionUpdate.session.tools.push({
+          type: 'function',
+          name: 'detect_sentiment',
+          description: 'CRITICAL: Call this function IMMEDIATELY after EVERY user message to analyze their emotional tone. This is required for tone adaptation. Analyze whether the user sounds positive, neutral, negative, or mixed.',
+          parameters: {
+            type: 'object',
+            properties: {
+              sentiment: {
+                type: 'string',
+                enum: ['positive', 'neutral', 'negative', 'mixed'],
+                description: 'The emotional sentiment in the user\'s last message'
               },
-              required: ['sentiment', 'confidence', 'reason']
-            }
+              confidence: {
+                type: 'number',
+                description: 'Confidence level from 0 to 1'
+              },
+              reason: {
+                type: 'string',
+                description: 'Brief explanation (e.g., "User expressing frustration", "Enthusiastic tone", "Casual conversation")'
+              }
+            },
+            required: ['sentiment', 'confidence', 'reason']
           }
-        ];
+        });
         
         // Add knowledge base search tool if available
         if (knowledgeBaseId) {

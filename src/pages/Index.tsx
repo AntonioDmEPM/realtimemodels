@@ -320,7 +320,8 @@ export default function Index() {
         } = await supabase.functions.invoke('get-realtime-token', {
           body: {
             model,
-            voice
+            voice,
+            instructions: botPrompt
           }
         });
         if (tokenError || !tokenData?.client_secret?.value) {
@@ -342,10 +343,25 @@ export default function Index() {
         if (!supabaseToken) {
           throw new Error('User session token not available. Please refresh the page.');
         }
+        // Check if any search type is enabled
+        const isSearchEnabled = Object.values(searchTypes).some(enabled => enabled);
+        
         const {
           pc,
           dc
-        } = await createRealtimeSession(stream, token, voice, model, botPrompt, handleMessage, supabaseToken, knowledgeBaseId || undefined, false, realtimeSettings);
+        } = await createRealtimeSession(
+          stream, 
+          token, 
+          voice, 
+          model, 
+          botPrompt, 
+          handleMessage, 
+          supabaseToken, 
+          knowledgeBaseId || undefined, 
+          false, 
+          realtimeSettings,
+          isSearchEnabled
+        );
         setPeerConnection(pc);
         setDataChannel(dc);
         const startTime = Date.now();
@@ -519,6 +535,9 @@ export default function Index() {
           }
         });
 
+        // Check if any search type is enabled
+        const isSearchEnabled = Object.values(searchTypes).some(enabled => enabled);
+        
         // Call chat completion edge function
         const {
           data,
@@ -530,7 +549,9 @@ export default function Index() {
               content: botPrompt
             }, ...chatMessages, userMessage],
             model: selectedModel,
-            knowledgeBaseId: knowledgeBaseId
+            knowledgeBaseId: knowledgeBaseId,
+            chatSettings: chatSettings,
+            searchEnabled: isSearchEnabled
           }
         });
         if (error) throw error;
@@ -642,7 +663,9 @@ export default function Index() {
                 }
               ],
               model: selectedModel,
-              knowledgeBaseId: knowledgeBaseId
+              knowledgeBaseId: knowledgeBaseId,
+              chatSettings: chatSettings,
+              searchEnabled: isSearchEnabled
             }
           });
 
@@ -737,7 +760,9 @@ export default function Index() {
                 }
               ],
               model: selectedModel,
-              knowledgeBaseId: knowledgeBaseId
+              knowledgeBaseId: knowledgeBaseId,
+              chatSettings: chatSettings,
+              searchEnabled: isSearchEnabled
             }
           });
 
