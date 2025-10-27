@@ -39,6 +39,7 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
   const [promptName, setPromptName] = useState('');
   const [promptDescription, setPromptDescription] = useState('');
   const [improvedPrompt, setImprovedPrompt] = useState('');
+  const [improvementRequest, setImprovementRequest] = useState('');
   const { toast } = useToast();
   const { theme } = useTheme();
 
@@ -179,7 +180,10 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('suggest-prompt', {
-        body: { currentPrompt: prompt }
+        body: { 
+          currentPrompt: prompt,
+          userRequest: improvementRequest.trim() || undefined
+        }
       });
 
       if (error) throw error;
@@ -360,7 +364,10 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
 
               <Dialog open={coilotDialogOpen} onOpenChange={(open) => {
                 setCopilotDialogOpen(open);
-                if (!open) setImprovedPrompt('');
+                if (!open) {
+                  setImprovedPrompt('');
+                  setImprovementRequest('');
+                }
               }}>
                 <DialogTrigger asChild>
                   <Button variant="outline">
@@ -399,6 +406,17 @@ export function SystemPromptView({ currentPrompt, onPromptChange }: SystemPrompt
                               }}
                             />
                           </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="improvementRequest">What changes do you want? (optional)</Label>
+                          <Textarea
+                            id="improvementRequest"
+                            value={improvementRequest}
+                            onChange={(e) => setImprovementRequest(e.target.value)}
+                            placeholder="e.g., Make it more concise, add examples, make it more technical, focus on customer service..."
+                            rows={3}
+                            className="mt-2"
+                          />
                         </div>
                         <Button onClick={handleImprovePrompt} disabled={isGenerating} className="w-full">
                           {isGenerating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

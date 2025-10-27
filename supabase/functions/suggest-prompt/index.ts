@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { currentPrompt } = await req.json();
+    const { currentPrompt, userRequest } = await req.json();
     
     if (!currentPrompt) {
       throw new Error("Current prompt is required");
@@ -46,6 +46,8 @@ When reviewing a prompt, consider:
 - Tone & Style: Is the desired communication style clearly specified?
 - Examples: Would examples or specific scenarios help clarify expectations?
 - Edge cases: Are boundary conditions and limitations addressed?
+
+${userRequest ? `The user has specifically requested: "${userRequest}". Make sure to prioritize this request in your improvements.` : ''}
 
 Return ONLY the improved prompt text, incorporating all enhancements. Do not include explanations, just the refined prompt that can directly replace the original.`
           },
