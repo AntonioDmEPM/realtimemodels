@@ -91,9 +91,14 @@ export async function createRealtimeSession(
     try {
       const eventData = JSON.parse(e.data);
       
-      // Log transcription and conversation item events for debugging
-      if (eventData.type?.includes('transcription') || eventData.type?.includes('conversation.item')) {
-        console.log('📝 Transcription/Item Event:', eventData.type, eventData);
+      // Log ALL events to debug transcription issues
+      console.log('🔔 EVENT:', eventData.type);
+      
+      // Log full details for critical events
+      if (eventData.type?.includes('transcription') || 
+          eventData.type?.includes('conversation.item') ||
+          eventData.type === 'session.updated') {
+        console.log('📝 Full Event Data:', JSON.stringify(eventData, null, 2));
       }
       
       // Send session.update with instructions after receiving session.created

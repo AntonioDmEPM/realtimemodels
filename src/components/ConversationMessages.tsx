@@ -205,13 +205,14 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
       // Also capture user text input from conversation.item.created events
       if (eventType === 'conversation.item.created' && event.data.item?.role === 'user') {
         const item = event.data.item;
-        console.log('Found conversation.item.created for user:', item);
+        console.log('📨 conversation.item.created for user:', JSON.stringify(item, null, 2));
         
-        // Check if this is an audio item - if so, skip it as we'll get the transcript from the transcription event
+        // For audio items, always wait for the separate transcription event
+        // Don't try to extract transcript from here even if present
         const hasAudioContent = item.content?.some((c: any) => c.type === 'input_audio');
-        if (hasAudioContent && !item.content?.some((c: any) => c.transcript)) {
-          console.log('Skipping audio item without transcript - waiting for transcription event');
-          return; // Skip audio items without transcripts - we'll get them from the transcription completed event
+        if (hasAudioContent) {
+          console.log('⏭️ Audio item detected - waiting for dedicated transcription event');
+          return;
         }
         
         if (item.content) {
