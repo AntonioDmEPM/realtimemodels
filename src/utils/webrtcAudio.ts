@@ -101,10 +101,21 @@ export async function createRealtimeSession(
         console.log('📝 Full Event Data:', JSON.stringify(eventData, null, 2));
       }
       
+      // Confirm session was updated by OpenAI
+      if (eventData.type === 'session.updated') {
+        console.log('✅ OpenAI confirmed session update');
+        console.log('Session config:', {
+          modalities: eventData.session?.modalities,
+          voice: eventData.session?.voice,
+          input_audio_transcription: eventData.session?.input_audio_transcription,
+          turn_detection: eventData.session?.turn_detection?.type
+        });
+      }
+      
       // Send session.update with instructions after receiving session.created
       if (eventData.type === 'session.created' && !sessionCreated) {
         sessionCreated = true;
-        console.log('Session created, sending configuration update...');
+        console.log('✅ Session created, sending configuration update...');
         
         const sessionUpdate: any = {
           type: 'session.update',
@@ -125,12 +136,12 @@ export async function createRealtimeSession(
           }
         };
 
-        // Add input_audio_transcription only if not in text-only mode and not explicitly disabled
-        if (!textOnly && realtimeSettings?.inputAudioTranscription !== false) {
+        // CRITICAL: Always enable transcription unless explicitly disabled or in text-only mode
+        if (!textOnly) {
           sessionUpdate.session.input_audio_transcription = { model: 'whisper-1' };
-          console.log('✅ Input audio transcription ENABLED');
+          console.log('✅ Input audio transcription ENABLED (Whisper-1)');
         } else {
-          console.log('❌ Input audio transcription DISABLED - textOnly:', textOnly, 'setting:', realtimeSettings?.inputAudioTranscription);
+          console.log('⚠️ Input audio transcription DISABLED (text-only mode)');
         }
 
         // Add tools conditionally based on settings
