@@ -89,6 +89,7 @@ serve(async (req) => {
     console.log('Using instructions:', sessionInstructions.substring(0, 100) + '...');
     
     console.log('Validated params - model:', validatedModel, 'voice:', validatedVoice);
+    console.log('✅ Configuring session with input_audio_transcription: whisper-1');
     console.log('Calling OpenAI API...');
     const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
@@ -100,6 +101,18 @@ serve(async (req) => {
         model: validatedModel,
         voice: validatedVoice,
         instructions: sessionInstructions,
+        modalities: ["audio", "text"],
+        input_audio_format: "pcm16",
+        output_audio_format: "pcm16",
+        input_audio_transcription: {
+          model: "whisper-1"
+        },
+        turn_detection: {
+          type: "server_vad",
+          threshold: 0.5,
+          prefix_padding_ms: 300,
+          silence_duration_ms: 1000
+        },
         tools: [
           {
             type: "function",
