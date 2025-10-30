@@ -123,6 +123,9 @@ export async function createRealtimeSession(
         // Add input_audio_transcription only if not in text-only mode and not explicitly disabled
         if (!textOnly && realtimeSettings?.inputAudioTranscription !== false) {
           sessionUpdate.session.input_audio_transcription = { model: 'whisper-1' };
+          console.log('✅ Input audio transcription ENABLED');
+        } else {
+          console.log('❌ Input audio transcription DISABLED - textOnly:', textOnly, 'setting:', realtimeSettings?.inputAudioTranscription);
         }
 
         // Add tools conditionally based on settings
@@ -194,6 +197,7 @@ export async function createRealtimeSession(
         
         sessionUpdate.session.tool_choice = 'auto';
         
+        console.log('📤 Sending session update:', JSON.stringify(sessionUpdate, null, 2));
         dc.send(JSON.stringify(sessionUpdate));
         console.log('Session updated with voice:', voice, 'and instructions:', instructions, 'KB:', knowledgeBaseId);
       }
