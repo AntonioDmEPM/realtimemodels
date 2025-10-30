@@ -12,7 +12,7 @@ import {
 
 const navItems = [
   { id: 'session', title: 'Session', icon: Activity },
-  { id: 'voice-model', title: 'Voice & Model', icon: Settings },
+  { id: 'voice-model', title: 'Model Settings', icon: Settings },
   { id: 'system-prompt', title: 'System Prompt', icon: MessageSquare },
   { id: 'knowledge-base', title: 'Knowledge Base', icon: Database },
   { id: 'search-settings', title: 'Search Settings', icon: Search },
