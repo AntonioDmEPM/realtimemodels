@@ -222,7 +222,14 @@ serve(async (req) => {
         requestBody.top_p = chatSettings.topP;
       }
       if (typeof chatSettings.maxOutputTokens === 'number') {
-        requestBody.max_tokens = chatSettings.maxOutputTokens;
+        // Use max_completion_tokens for newer OpenAI models (gpt-5 variants)
+        // Use max_tokens for legacy models and Google models
+        const usesCompletionTokens = validatedModel.startsWith('openai/gpt-5');
+        if (usesCompletionTokens) {
+          requestBody.max_completion_tokens = chatSettings.maxOutputTokens;
+        } else {
+          requestBody.max_tokens = chatSettings.maxOutputTokens;
+        }
       }
       if (typeof chatSettings.frequencyPenalty === 'number') {
         requestBody.frequency_penalty = chatSettings.frequencyPenalty;
