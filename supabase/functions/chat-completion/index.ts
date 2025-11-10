@@ -215,17 +215,22 @@ serve(async (req) => {
     
     // Apply chat model settings if provided
     if (chatSettings) {
-      if (typeof chatSettings.temperature === 'number') {
-        requestBody.temperature = chatSettings.temperature;
+      const isGPT5Model = validatedModel.startsWith('openai/gpt-5');
+      
+      // GPT-5 models don't support temperature or top_p parameters
+      if (!isGPT5Model) {
+        if (typeof chatSettings.temperature === 'number') {
+          requestBody.temperature = chatSettings.temperature;
+        }
+        if (typeof chatSettings.topP === 'number') {
+          requestBody.top_p = chatSettings.topP;
+        }
       }
-      if (typeof chatSettings.topP === 'number') {
-        requestBody.top_p = chatSettings.topP;
-      }
+      
       if (typeof chatSettings.maxOutputTokens === 'number') {
         // Use max_completion_tokens for newer OpenAI models (gpt-5 variants)
         // Use max_tokens for legacy models and Google models
-        const usesCompletionTokens = validatedModel.startsWith('openai/gpt-5');
-        if (usesCompletionTokens) {
+        if (isGPT5Model) {
           requestBody.max_completion_tokens = chatSettings.maxOutputTokens;
         } else {
           requestBody.max_tokens = chatSettings.maxOutputTokens;
