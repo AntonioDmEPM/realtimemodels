@@ -46,20 +46,6 @@ export function ChatModelSettings({ settings, onChange, disabled }: ChatModelSet
         <p className="text-xs text-muted-foreground">Nucleus sampling - considers tokens with top probability mass</p>
       </div>
 
-      {/* Top K */}
-      <div className="space-y-2">
-        <Label>Top K</Label>
-        <Input
-          type="number"
-          value={settings.topK}
-          onChange={(e) => onChange({ ...settings, topK: parseInt(e.target.value) || 0 })}
-          disabled={disabled}
-          min={1}
-          max={100}
-        />
-        <p className="text-xs text-muted-foreground">Limits sampling to top K tokens</p>
-      </div>
-
       {/* Max Output Tokens */}
       <div className="space-y-2">
         <Label>Max Output Tokens</Label>

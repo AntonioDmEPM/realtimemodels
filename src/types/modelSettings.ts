@@ -17,11 +17,13 @@ export interface RealtimeModelSettings {
 export interface ChatModelSettings {
   temperature: number;
   topP: number;
-  topK: number;
   maxOutputTokens: number;
   stopSequences: string[];
   frequencyPenalty: number;
   presencePenalty: number;
+  // Reasoning parameters (GPT-5 full only)
+  reasoningEffort?: 'low' | 'medium' | 'high';
+  maxReasoningTokens?: number;
 }
 
 // Default settings
@@ -42,9 +44,10 @@ export const DEFAULT_REALTIME_SETTINGS: RealtimeModelSettings = {
 export const DEFAULT_CHAT_SETTINGS: ChatModelSettings = {
   temperature: 0.7,
   topP: 0.9,
-  topK: 40,
   maxOutputTokens: 4096,
   stopSequences: [],
   frequencyPenalty: 0,
-  presencePenalty: 0
+  presencePenalty: 0,
+  reasoningEffort: 'medium',
+  maxReasoningTokens: 10000
 };
