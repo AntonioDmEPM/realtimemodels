@@ -98,9 +98,27 @@ export function VoiceModelView({
     } else {
       const savedChatSettings = localStorage.getItem('chat_settings');
       if (savedChatSettings) {
-        const parsed = JSON.parse(savedChatSettings);
-        setLocalChatSettings(parsed);
-        onChatSettingsChange?.(parsed);
+        try {
+          const parsed = JSON.parse(savedChatSettings);
+          
+          // Migration: Remove topK if it exists and fix temperature range
+          const migratedSettings = {
+            ...DEFAULT_CHAT_SETTINGS,
+            ...parsed,
+            temperature: parsed.temperature > 1 ? 1 : parsed.temperature, // Cap at 1 for now
+          };
+          delete (migratedSettings as any).topK; // Remove topK if present
+          
+          setLocalChatSettings(migratedSettings);
+          onChatSettingsChange?.(migratedSettings);
+          
+          // Save migrated settings back to localStorage
+          localStorage.setItem('chat_settings', JSON.stringify(migratedSettings));
+        } catch (e) {
+          console.error('Failed to parse chat settings, using defaults:', e);
+          setLocalChatSettings(DEFAULT_CHAT_SETTINGS);
+          onChatSettingsChange?.(DEFAULT_CHAT_SETTINGS);
+        }
       }
     }
   }, [selectedModel, mode]);

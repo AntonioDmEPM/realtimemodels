@@ -21,12 +21,12 @@ export function ChatModelSettings({ settings, onChange, disabled }: ChatModelSet
           value={[settings.temperature]}
           onValueChange={([value]) => onChange({ ...settings, temperature: value })}
           min={0}
-          max={2}
+          max={1}
           step={0.1}
           disabled={disabled}
           className="w-full"
         />
-        <p className="text-xs text-muted-foreground">Controls randomness. Lower = focused, higher = creative</p>
+        <p className="text-xs text-muted-foreground">Controls randomness. Lower = focused, higher = creative. Note: GPT-5 models may have restrictions.</p>
       </div>
 
       {/* Top P */}
