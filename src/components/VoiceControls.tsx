@@ -30,11 +30,12 @@ const CHAT_MODELS = [
 ];
 
 const VOICES = [
+  { value: 'alloy', label: 'Alloy' },
   { value: 'ash', label: 'Ash' },
   { value: 'ballad', label: 'Ballad' },
   { value: 'coral', label: 'Coral' },
+  { value: 'echo', label: 'Echo' },
   { value: 'sage', label: 'Sage' },
-  { value: 'verse', label: 'Verse' },
 ];
 
 export default function VoiceControls({
