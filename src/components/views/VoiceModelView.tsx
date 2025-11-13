@@ -203,8 +203,8 @@ export function VoiceModelView({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="voice">Voice (Realtime API)</SelectItem>
-                  <SelectItem value="chat">Chat (GPT-5 Models)</SelectItem>
+                  <SelectItem value="voice">Voice</SelectItem>
+                  <SelectItem value="chat">Chat</SelectItem>
                 </SelectContent>
               </Select>
             </div>

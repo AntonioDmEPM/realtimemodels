@@ -27,7 +27,7 @@ export function ChatModelSettings({ settings, onChange, disabled }: ChatModelSet
           disabled={disabled}
           className="w-full"
         />
-        <p className="text-xs text-muted-foreground">Controls randomness. Lower = focused, higher = creative. Note: GPT-5 models may have restrictions.</p>
+        <p className="text-xs text-muted-foreground">Controls randomness. Lower = focused, higher = creative</p>
       </div>
 
       {/* Top P */}
