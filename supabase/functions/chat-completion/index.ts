@@ -245,6 +245,16 @@ serve(async (req) => {
       if (Array.isArray(chatSettings.stopSequences) && chatSettings.stopSequences.length > 0) {
         requestBody.stop = chatSettings.stopSequences;
       }
+      
+      // GPT-5 specific parameters
+      if (isGPT5Model) {
+        if (chatSettings.reasoningEffort) {
+          requestBody.reasoning_effort = chatSettings.reasoningEffort;
+        }
+        if (typeof chatSettings.maxReasoningTokens === 'number') {
+          requestBody.max_reasoning_tokens = chatSettings.maxReasoningTokens;
+        }
+      }
     }
     
     console.log('Calling Lovable AI Gateway with settings:', { 

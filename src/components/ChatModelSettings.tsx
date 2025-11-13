@@ -1,6 +1,7 @@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { ChatModelSettings } from '@/types/modelSettings';
 
 interface ChatModelSettingsProps {
@@ -107,6 +108,41 @@ export function ChatModelSettings({ settings, onChange, disabled }: ChatModelSet
           disabled={disabled}
         />
         <p className="text-xs text-muted-foreground">Sequences where the model will stop generating</p>
+      </div>
+
+      {/* Reasoning Effort (GPT-5 Models) */}
+      <div className="space-y-2">
+        <Label>Reasoning Effort (GPT-5 Models)</Label>
+        <Select
+          value={settings.reasoningEffort}
+          onValueChange={(value: 'low' | 'medium' | 'high') => onChange({ ...settings, reasoningEffort: value })}
+          disabled={disabled}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select reasoning effort" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="low">Low</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">Controls how much computational effort the model uses for reasoning (GPT-5 only)</p>
+      </div>
+
+      {/* Max Reasoning Tokens (GPT-5 Models) */}
+      <div className="space-y-2">
+        <Label>Max Reasoning Tokens (GPT-5 Models)</Label>
+        <Input
+          type="number"
+          value={settings.maxReasoningTokens}
+          onChange={(e) => onChange({ ...settings, maxReasoningTokens: parseInt(e.target.value) || 10000 })}
+          disabled={disabled}
+          min={1000}
+          max={100000}
+          step={1000}
+        />
+        <p className="text-xs text-muted-foreground">Maximum tokens allocated for reasoning process (GPT-5 only)</p>
       </div>
     </div>
   );
