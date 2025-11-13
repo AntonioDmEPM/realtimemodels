@@ -561,6 +561,8 @@ export default function Index() {
         // Check if AI is requesting a tool call (web search)
         if (data.requires_tool && data.tool_name === 'web_search' && data.tool_arguments) {
           console.log('AI requested web search:', data.tool_arguments);
+          console.log('Search types enabled:', searchTypes);
+          console.log('Search service:', searchService);
           
           // Get the tool call ID from the response
           const toolCallId = data.choices[0]?.message?.tool_calls?.[0]?.id;
@@ -581,30 +583,40 @@ export default function Index() {
           
           // If no search type enabled or only shopping/amazon/maps, fallback to web
           const activeSearchTypes = enabledSearchTypes.length === 0 ? ['web'] : enabledSearchTypes;
+          console.log('Active search types:', activeSearchTypes);
           
           // Perform searches for all enabled types
           const searchPromises = activeSearchTypes.map(async (searchType) => {
+            console.log(`Starting ${searchType} search...`);
             // SearchAPI only supports web search
             const serviceToUse = searchType === 'web' ? searchService : 'serpapi';
             
-            const { data: searchData, error: searchError } = await supabase.functions.invoke('web-search', {
-              body: { 
-                query: data.tool_arguments.query,
-                service: serviceToUse,
-                searchType: searchType
-              }
-            });
+            try {
+              const { data: searchData, error: searchError } = await supabase.functions.invoke('web-search', {
+                body: { 
+                  query: data.tool_arguments.query,
+                  service: serviceToUse,
+                  searchType: searchType
+                }
+              });
 
-            if (searchError) {
-              console.error(`${searchType} search error:`, searchError);
+              if (searchError) {
+                console.error(`${searchType} search error:`, searchError);
+                return null;
+              }
+              
+              console.log(`${searchType} search completed successfully`);
+              return { type: searchType, data: searchData };
+            } catch (err) {
+              console.error(`${searchType} search exception:`, err);
               return null;
             }
-            
-            return { type: searchType, data: searchData };
           });
 
+          console.log('Waiting for all searches to complete...');
           const searchResults = await Promise.all(searchPromises);
           const validResults = searchResults.filter(r => r !== null);
+          console.log(`Search results: ${validResults.length} valid results`);
 
           if (validResults.length === 0) {
             toast({
@@ -617,6 +629,7 @@ export default function Index() {
 
           // Format all search results
           let formattedResults = '';
+          console.log('Formatting search results...');
           
           for (const result of validResults) {
             if (!result) continue;
@@ -644,6 +657,9 @@ export default function Index() {
             }
           }
 
+          console.log('Formatted results length:', formattedResults.length);
+          console.log('Sending search results back to AI...');
+
           // Send search results back to AI using proper tool calling format
           let currentMessages = [
             { role: 'system', content: botPrompt },
@@ -663,12 +679,17 @@ export default function Index() {
             }
           ];
 
+          console.log('Current messages count:', currentMessages.length);
+
           // Handle potential follow-up tool calls (like sentiment detection)
           let finalData = null;
           let attempts = 0;
           const maxAttempts = 3; // Prevent infinite loops
 
+          console.log('Entering tool call handling loop...');
           while (attempts < maxAttempts) {
+            console.log(`Attempt ${attempts + 1}/${maxAttempts}`);
+            
             const { data: responseData, error: responseError } = await supabase.functions.invoke('chat-completion', {
               body: {
                 messages: currentMessages,
@@ -679,14 +700,26 @@ export default function Index() {
               }
             });
 
-            if (responseError) throw responseError;
+            if (responseError) {
+              console.error('Error in follow-up chat-completion:', responseError);
+              throw responseError;
+            }
+
+            console.log('Response received:', {
+              requires_tool: responseData.requires_tool,
+              tool_name: responseData.tool_name,
+              has_content: !!responseData.choices[0]?.message?.content
+            });
 
             // Check if AI wants to make another tool call
             if (responseData.requires_tool && responseData.tool_name === 'detect_sentiment') {
               console.log('AI requesting sentiment detection after search');
               
               const sentimentToolCallId = responseData.choices[0]?.message?.tool_calls?.[0]?.id;
-              if (!sentimentToolCallId) break;
+              if (!sentimentToolCallId) {
+                console.error('No sentiment tool_call_id found');
+                break;
+              }
 
               // Add assistant message with tool call
               currentMessages.push({
@@ -710,16 +743,21 @@ export default function Index() {
             }
 
             // We got a final response
+            console.log('Got final response from AI');
             finalData = responseData;
             break;
           }
 
           if (!finalData) {
+            console.error('Failed to get final response after max attempts');
             throw new Error('Failed to get final response after tool calls');
           }
 
           const finalMessage = finalData.choices[0]?.message?.content;
+          console.log('Final message length:', finalMessage?.length || 0);
+          
           if (finalMessage) {
+            console.log('Adding final message to chat');
             setChatMessages(prev => [...prev, {
               role: 'assistant',
               content: finalMessage
