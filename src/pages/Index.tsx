@@ -645,33 +645,78 @@ export default function Index() {
           }
 
           // Send search results back to AI using proper tool calling format
-          const { data: finalData, error: finalError } = await supabase.functions.invoke('chat-completion', {
-            body: {
-              messages: [
-                { role: 'system', content: botPrompt },
-                ...chatMessages,
-                userMessage,
-                // Include the assistant's message with the tool call
-                { 
-                  role: 'assistant', 
-                  content: '',
-                  tool_calls: data.choices[0].message.tool_calls
-                },
-                // Add the tool result
-                {
-                  role: 'tool',
-                  tool_call_id: toolCallId,
-                  content: formattedResults
-                }
-              ],
-              model: selectedChatModel,
-              knowledgeBaseId: knowledgeBaseId,
-              chatSettings: chatSettings,
-              searchEnabled: isSearchEnabled
+          let currentMessages = [
+            { role: 'system', content: botPrompt },
+            ...chatMessages,
+            userMessage,
+            // Include the assistant's message with the tool call
+            { 
+              role: 'assistant', 
+              content: '',
+              tool_calls: data.choices[0].message.tool_calls
+            },
+            // Add the tool result
+            {
+              role: 'tool',
+              tool_call_id: toolCallId,
+              content: formattedResults
             }
-          });
+          ];
 
-          if (finalError) throw finalError;
+          // Handle potential follow-up tool calls (like sentiment detection)
+          let finalData = null;
+          let attempts = 0;
+          const maxAttempts = 3; // Prevent infinite loops
+
+          while (attempts < maxAttempts) {
+            const { data: responseData, error: responseError } = await supabase.functions.invoke('chat-completion', {
+              body: {
+                messages: currentMessages,
+                model: selectedChatModel,
+                knowledgeBaseId: knowledgeBaseId,
+                chatSettings: chatSettings,
+                searchEnabled: isSearchEnabled
+              }
+            });
+
+            if (responseError) throw responseError;
+
+            // Check if AI wants to make another tool call
+            if (responseData.requires_tool && responseData.tool_name === 'detect_sentiment') {
+              console.log('AI requesting sentiment detection after search');
+              
+              const sentimentToolCallId = responseData.choices[0]?.message?.tool_calls?.[0]?.id;
+              if (!sentimentToolCallId) break;
+
+              // Add assistant message with tool call
+              currentMessages.push({
+                role: 'assistant',
+                content: '',
+                tool_calls: responseData.choices[0].message.tool_calls
+              });
+
+              // Add tool response
+              currentMessages.push({
+                role: 'tool',
+                tool_call_id: sentimentToolCallId,
+                content: JSON.stringify({
+                  acknowledged: true,
+                  ...responseData.tool_arguments
+                })
+              });
+
+              attempts++;
+              continue; // Try again with updated messages
+            }
+
+            // We got a final response
+            finalData = responseData;
+            break;
+          }
+
+          if (!finalData) {
+            throw new Error('Failed to get final response after tool calls');
+          }
 
           const finalMessage = finalData.choices[0]?.message?.content;
           if (finalMessage) {
