@@ -68,23 +68,39 @@ export function SessionView({
       <div className="border-b p-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Button
-              onClick={isConnected ? onStop : onStart}
-              variant={isConnected ? 'destructive' : 'default'}
-            >
-              {isConnected ? 'Stop Session' : 'Start Session'}
-            </Button>
-            <Button onClick={onResetAll} variant="outline" disabled={isConnected}>
-              Reset All
-            </Button>
+            {mode === 'voice' && (
+              <>
+                <Button
+                  onClick={isConnected ? onStop : onStart}
+                  variant={isConnected ? 'destructive' : 'default'}
+                >
+                  {isConnected ? 'Stop Session' : 'Start Session'}
+                </Button>
+                <Button onClick={onResetAll} variant="outline" disabled={isConnected}>
+                  Reset All
+                </Button>
+              </>
+            )}
+            {mode === 'chat' && (
+              <Button onClick={onResetAll} variant="outline">
+                Clear Chat
+              </Button>
+            )}
           </div>
           
           <div className="flex items-center gap-4">
-            <AudioIndicator isActive={isAudioActive} />
-            <ConversationTimer
-              startTime={sessionStartTime}
-              isActive={isConnected}
-            />
+            {mode === 'voice' && <AudioIndicator isActive={isAudioActive} />}
+            {mode === 'voice' && (
+              <ConversationTimer
+                startTime={sessionStartTime}
+                isActive={isConnected}
+              />
+            )}
+            {mode === 'chat' && (
+              <span className="text-sm text-muted-foreground">
+                Chat Mode - No session required
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -117,11 +133,10 @@ export function SessionView({
                       }
                     }}
                     placeholder="Type your message..."
-                    disabled={!isConnected}
                   />
                   <Button
                     onClick={onSendMessage}
-                    disabled={!isConnected || !chatInput.trim()}
+                    disabled={!chatInput.trim()}
                     size="icon"
                   >
                     <Send className="h-4 w-4" />

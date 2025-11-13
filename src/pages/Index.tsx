@@ -50,6 +50,7 @@ export default function Index() {
   const [audioVisualizer, setAudioVisualizer] = useState<AudioVisualizer | null>(null);
   const [selectedModel, setSelectedModel] = useState('gpt-4o-realtime-preview-2024-12-17');
   const [selectedVoice, setSelectedVoice] = useState('alloy');
+  const [selectedChatModel, setSelectedChatModel] = useState('google/gemini-2.5-flash');
   const [botPrompt, setBotPrompt] = useState('You are a helpful AI assistant. Be concise and friendly in your responses.\n\nCRITICAL: You MUST call the detect_sentiment function after EVERY user message to analyze their emotional tone (positive, neutral, negative, or mixed). Include confidence (0-1) and a brief reason. This is essential for adapting your tone appropriately.\n\nExamples:\n- User sounds frustrated → detect_sentiment({sentiment: "negative", confidence: 0.8, reason: "User expressing frustration"})\n- User is enthusiastic → detect_sentiment({sentiment: "positive", confidence: 0.9, reason: "User showing excitement"})\n- Casual conversation → detect_sentiment({sentiment: "neutral", confidence: 0.7, reason: "Casual, relaxed tone"})');
   const [knowledgeBaseId, setKnowledgeBaseId] = useState<string | undefined>(undefined);
   const [pricingConfig, setPricingConfig] = useState<PricingConfig>({
@@ -69,6 +70,15 @@ export default function Index() {
     output: 0
   });
   const [interactionMode, setInteractionMode] = useState<'voice' | 'chat'>('voice');
+  
+  // Auto-switch models when mode changes
+  useEffect(() => {
+    if (interactionMode === 'voice') {
+      setSelectedModel('gpt-4o-realtime-preview-2024-12-17');
+    } else {
+      setSelectedModel(selectedChatModel);
+    }
+  }, [interactionMode, selectedChatModel]);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<Array<{
     role: 'user' | 'assistant';
@@ -505,15 +515,7 @@ export default function Index() {
         });
       }
     } else {
-      // Chat mode: use GPT-5 chat completions
-      if (!isConnected) {
-        toast({
-          title: 'Unable to send',
-          description: 'Please start a session first.',
-          variant: 'destructive'
-        });
-        return;
-      }
+      // Chat mode: use Gemini/GPT-5 chat completions (no session required)
       try {
         // Add user message to chat
         const userMessage = {
@@ -548,7 +550,7 @@ export default function Index() {
               role: 'system',
               content: botPrompt
             }, ...chatMessages, userMessage],
-            model: selectedModel,
+            model: selectedChatModel, // Use chat-specific model
             knowledgeBaseId: knowledgeBaseId,
             chatSettings: chatSettings,
             searchEnabled: isSearchEnabled
@@ -662,7 +664,7 @@ export default function Index() {
                   content: formattedResults
                 }
               ],
-              model: selectedModel,
+              model: selectedChatModel,
               knowledgeBaseId: knowledgeBaseId,
               chatSettings: chatSettings,
               searchEnabled: isSearchEnabled
@@ -759,7 +761,7 @@ export default function Index() {
                   content: JSON.stringify({ acknowledged: true, ...data.tool_arguments })
                 }
               ],
-              model: selectedModel,
+              model: selectedChatModel,
               knowledgeBaseId: knowledgeBaseId,
               chatSettings: chatSettings,
               searchEnabled: isSearchEnabled
@@ -891,7 +893,7 @@ export default function Index() {
                   content: formattedKbResults
                 }
               ],
-              model: selectedModel,
+              model: selectedChatModel,
               knowledgeBaseId: knowledgeBaseId
             }
           });
@@ -1070,12 +1072,18 @@ export default function Index() {
       case 'voice-model':
         return (
           <VoiceModelView
-            selectedModel={selectedModel}
+            selectedModel={interactionMode === 'voice' ? selectedModel : selectedChatModel}
             selectedVoice={selectedVoice}
             mode={interactionMode}
             pricingConfig={pricingConfig}
             isConnected={isConnected}
-            onModelChange={setSelectedModel}
+            onModelChange={(model) => {
+              if (interactionMode === 'voice') {
+                setSelectedModel(model);
+              } else {
+                setSelectedChatModel(model);
+              }
+            }}
             onVoiceChange={setSelectedVoice}
             onModeChange={setInteractionMode}
             onPricingChange={setPricingConfig}
@@ -1136,9 +1144,12 @@ export default function Index() {
             onResetAll={resetAll}
             onChatInputChange={setChatInput}
             onSendMessage={() => {
-              if (chatInput.trim() && isConnected) {
-                sendChatMessage(chatInput);
-                setChatInput('');
+              if (chatInput.trim()) {
+                // Chat mode works without session
+                if (interactionMode === 'chat' || isConnected) {
+                  sendChatMessage(chatInput);
+                  setChatInput('');
+                }
               }
             }}
           />
