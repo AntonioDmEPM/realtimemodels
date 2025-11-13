@@ -84,6 +84,7 @@ export default function Index() {
     role: 'user' | 'assistant';
     content: string;
   }>>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [searchService, setSearchService] = useState<'searchapi' | 'serpapi'>('searchapi');
   const [searchTypes, setSearchTypes] = useState({
     web: true,
@@ -586,6 +587,7 @@ export default function Index() {
           console.log('Active search types:', activeSearchTypes);
           
           // Perform searches for all enabled types
+          setIsSearching(true);
           const searchPromises = activeSearchTypes.map(async (searchType) => {
             console.log(`Starting ${searchType} search...`);
             // SearchAPI only supports web search
@@ -758,6 +760,7 @@ export default function Index() {
           
           if (finalMessage) {
             console.log('Adding final message to chat');
+            setIsSearching(false);
             setChatMessages(prev => [...prev, {
               role: 'assistant',
               content: finalMessage
@@ -855,6 +858,7 @@ export default function Index() {
 
           const finalMessage = finalData.choices[0]?.message?.content;
           if (finalMessage) {
+            setIsSearching(false);
             setChatMessages(prev => [...prev, {
               role: 'assistant',
               content: finalMessage
@@ -1037,6 +1041,7 @@ export default function Index() {
 
         const assistantMessage = data.choices[0]?.message?.content;
         if (assistantMessage) {
+          setIsSearching(false);
           // Add assistant message to chat
           setChatMessages(prev => [...prev, {
             role: 'assistant',
@@ -1089,6 +1094,7 @@ export default function Index() {
         }
       } catch (error) {
         console.error('Error sending chat message:', error);
+        setIsSearching(false);
         toast({
           title: 'Send Failed',
           description: error instanceof Error ? error.message : 'Failed to send message. Please try again.',
@@ -1210,6 +1216,7 @@ export default function Index() {
             mode={interactionMode}
             chatInput={chatInput}
             chatMessages={chatMessages}
+            isSearching={isSearching}
             currentStats={currentStats}
             sessionStats={sessionStats}
             tokenDataPoints={tokenDataPoints}

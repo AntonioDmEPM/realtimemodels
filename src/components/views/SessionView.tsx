@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import AudioIndicator from '@/components/AudioIndicator';
@@ -11,6 +11,7 @@ import ConversationMessages from '@/components/ConversationMessages';
 import { AnalyticsPanel } from '@/components/AnalyticsPanel';
 import { SessionStats } from '@/utils/webrtcAudio';
 import { TokenDataPoint } from '@/components/TokenDashboard';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface EventEntry {
   timestamp: string;
@@ -29,6 +30,7 @@ interface SessionViewProps {
   mode: 'voice' | 'chat';
   chatInput: string;
   chatMessages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  isSearching?: boolean;
   currentStats: SessionStats;
   sessionStats: SessionStats;
   tokenDataPoints: TokenDataPoint[];
@@ -50,6 +52,7 @@ export function SessionView({
   mode,
   chatInput,
   chatMessages,
+  isSearching = false,
   currentStats,
   sessionStats,
   tokenDataPoints,
