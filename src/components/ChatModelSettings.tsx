@@ -136,11 +136,11 @@ export function ChatModelSettings({ settings, onChange, disabled }: ChatModelSet
         <Input
           type="number"
           value={settings.maxReasoningTokens}
-          onChange={(e) => onChange({ ...settings, maxReasoningTokens: parseInt(e.target.value) || 10000 })}
+          onChange={(e) => onChange({ ...settings, maxReasoningTokens: parseInt(e.target.value) || 0 })}
           disabled={disabled}
-          min={1000}
+          min={0}
           max={100000}
-          step={1000}
+          step={100}
         />
         <p className="text-xs text-muted-foreground">Maximum tokens allocated for reasoning process (GPT-5 only)</p>
       </div>
