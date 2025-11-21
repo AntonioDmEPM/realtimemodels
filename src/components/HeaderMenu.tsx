@@ -139,7 +139,13 @@ export default function HeaderMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-96 bg-background z-50">
-        <DropdownMenuLabel className="flex items-center gap-2">
+        <DropdownMenuItem 
+          className="flex items-center gap-2 cursor-pointer"
+          onClick={() => {
+            setIsOpen(false);
+            navigate('/profile');
+          }}
+        >
           <User className="h-4 w-4" />
           <div className="flex flex-col">
             <span className="text-sm font-medium">Profile</span>
@@ -147,7 +153,7 @@ export default function HeaderMenu({
               {userEmail}
             </span>
           </div>
-        </DropdownMenuLabel>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Saved Sessions</DropdownMenuLabel>
         <ScrollArea className="h-[300px]">
