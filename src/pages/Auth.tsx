@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,16 @@ export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
+
+  // Check if this is a password reset callback
+  useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const type = hashParams.get('type');
+    if (type === 'recovery') {
+      setIsResettingPassword(true);
+      setIsLogin(false);
+    }
+  }, []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -21,6 +31,8 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState<number>(0);
   const [passwordFeedback, setPasswordFeedback] = useState<string>('');
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   const validatePassword = (pwd: string): { valid: boolean; message: string } => {
     if (pwd.length < 12) {
@@ -81,6 +93,87 @@ export default function Auth() {
     if (passwordStrength === 2) return 'Fair';
     if (passwordStrength === 3) return 'Good';
     return 'Strong';
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const redirectUrl = `${window.location.origin}/auth`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Check your email",
+        description: "We've sent you a password reset link.",
+      });
+      setIsForgotPassword(false);
+      setEmail('');
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const validation = validatePassword(password);
+      if (!validation.valid) {
+        toast({
+          title: "Invalid password",
+          description: validation.message,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (passwordStrength < 2) {
+        toast({
+          title: "Weak password",
+          description: "Please choose a stronger password for better security.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password: password,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Password updated!",
+        description: "Your password has been successfully reset.",
+      });
+      
+      // Clear the hash and redirect
+      window.location.hash = '';
+      setIsResettingPassword(false);
+      navigate('/');
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -158,6 +251,110 @@ export default function Auth() {
     }
   };
 
+  // Render password reset form
+  if (isResettingPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Reset Password</CardTitle>
+            <CardDescription>
+              Enter your new password below
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordReset} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="password">New Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => handlePasswordChange(e.target.value)}
+                  required
+                  minLength={12}
+                />
+                {password.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Password strength:</span>
+                      <span className={`font-medium ${
+                        passwordStrength === 0 ? 'text-muted-foreground' :
+                        passwordStrength === 1 ? 'text-destructive' :
+                        passwordStrength === 2 ? 'text-orange-500' :
+                        passwordStrength === 3 ? 'text-yellow-500' :
+                        'text-green-500'
+                      }`}>
+                        {getStrengthLabel()}
+                      </span>
+                    </div>
+                    <Progress 
+                      value={(passwordStrength / 4) * 100} 
+                      className="h-1.5"
+                    />
+                    {passwordFeedback && (
+                      <p className="text-xs text-muted-foreground mt-1">{passwordFeedback}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Updating...' : 'Reset Password'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Render forgot password form
+  if (isForgotPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Forgot Password</CardTitle>
+            <CardDescription>
+              Enter your email and we'll send you a reset link
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Sending...' : 'Send Reset Link'}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  setIsForgotPassword(false);
+                  setEmail('');
+                }}
+              >
+                Back to Login
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Render login/signup form
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -255,6 +452,16 @@ export default function Auth() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Loading...' : isLogin ? 'Login' : 'Sign Up'}
             </Button>
+            {isLogin && (
+              <Button
+                type="button"
+                variant="link"
+                className="w-full text-sm"
+                onClick={() => setIsForgotPassword(true)}
+              >
+                Forgot password?
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"
