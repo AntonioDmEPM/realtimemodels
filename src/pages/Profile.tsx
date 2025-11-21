@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, Lock } from 'lucide-react';
+import zxcvbn from 'zxcvbn';
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -15,6 +17,61 @@ export default function Profile() {
   const [userEmail, setUserEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState<number>(0);
+  const [passwordFeedback, setPasswordFeedback] = useState<string>('');
+
+  const validatePassword = (pwd: string): { valid: boolean; message: string } => {
+    if (pwd.length < 12) {
+      return { valid: false, message: 'Password must be at least 12 characters long' };
+    }
+    if (pwd.length > 128) {
+      return { valid: false, message: 'Password must be less than 128 characters' };
+    }
+    if (!/[a-z]/.test(pwd)) {
+      return { valid: false, message: 'Password must contain at least one lowercase letter' };
+    }
+    if (!/[A-Z]/.test(pwd)) {
+      return { valid: false, message: 'Password must contain at least one uppercase letter' };
+    }
+    if (!/[0-9]/.test(pwd)) {
+      return { valid: false, message: 'Password must contain at least one number' };
+    }
+    if (!/[^a-zA-Z0-9]/.test(pwd)) {
+      return { valid: false, message: 'Password must contain at least one special character' };
+    }
+    return { valid: true, message: '' };
+  };
+
+  const handlePasswordInputChange = (pwd: string) => {
+    setNewPassword(pwd);
+    
+    if (pwd.length > 0) {
+      const result = zxcvbn(pwd);
+      setPasswordStrength(result.score);
+      
+      const validation = validatePassword(pwd);
+      if (!validation.valid) {
+        setPasswordFeedback(validation.message);
+      } else if (result.feedback.warning) {
+        setPasswordFeedback(result.feedback.warning);
+      } else if (result.feedback.suggestions.length > 0) {
+        setPasswordFeedback(result.feedback.suggestions[0]);
+      } else {
+        setPasswordFeedback('Strong password!');
+      }
+    } else {
+      setPasswordStrength(0);
+      setPasswordFeedback('');
+    }
+  };
+
+  const getStrengthLabel = () => {
+    if (passwordStrength === 0) return '';
+    if (passwordStrength === 1) return 'Weak';
+    if (passwordStrength === 2) return 'Fair';
+    if (passwordStrength === 3) return 'Good';
+    return 'Strong';
+  };
 
   useEffect(() => {
     checkAuth();
@@ -41,19 +98,29 @@ export default function Profile() {
       return;
     }
 
-    if (newPassword !== confirmPassword) {
+    const validation = validatePassword(newPassword);
+    if (!validation.valid) {
       toast({
-        title: 'Error',
-        description: 'Passwords do not match.',
+        title: 'Invalid password',
+        description: validation.message,
         variant: 'destructive',
       });
       return;
     }
 
-    if (newPassword.length < 6) {
+    if (passwordStrength < 2) {
+      toast({
+        title: 'Weak password',
+        description: 'Please choose a stronger password for better security.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
       toast({
         title: 'Error',
-        description: 'Password must be at least 6 characters long.',
+        description: 'Passwords do not match.',
         variant: 'destructive',
       });
       return;
@@ -130,10 +197,34 @@ export default function Profile() {
                   id="newPassword"
                   type="password"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
+                  onChange={(e) => handlePasswordInputChange(e.target.value)}
+                  placeholder="Enter new password (min 12 characters)"
                   className="mt-2"
+                  minLength={12}
                 />
+                {newPassword.length > 0 && (
+                  <div className="space-y-1.5 mt-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Password strength:</span>
+                      <span className={`font-medium ${
+                        passwordStrength === 0 ? 'text-muted-foreground' :
+                        passwordStrength === 1 ? 'text-destructive' :
+                        passwordStrength === 2 ? 'text-orange-500' :
+                        passwordStrength === 3 ? 'text-yellow-500' :
+                        'text-green-500'
+                      }`}>
+                        {getStrengthLabel()}
+                      </span>
+                    </div>
+                    <Progress 
+                      value={(passwordStrength / 4) * 100} 
+                      className="h-1.5"
+                    />
+                    {passwordFeedback && (
+                      <p className="text-xs text-muted-foreground mt-1">{passwordFeedback}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
