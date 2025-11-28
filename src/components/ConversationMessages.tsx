@@ -95,7 +95,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
           eventType === 'conversation.item.input_audio_transcription.done') {
         console.log('Found user transcription:', event.data.transcript, 'at timestamp:', event.timestamp);
         
-        // Find the closest sentiment by timestamp (within 10 seconds in either direction)
+        // Find the closest sentiment by timestamp (within 1 second in either direction)
         // Sentiment detection happens AFTER the user message, so we need to look both ways
         let closestSentiment = null;
         let closestTimeDiff = Infinity;
@@ -106,8 +106,8 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
           const sentimentTime = new Date(sentimentTimestamp).getTime();
           const timeDiff = Math.abs(messageTime - sentimentTime);
           
-          // Sentiment should be within 10 seconds of the message (before or after)
-          if (timeDiff <= 10000 && timeDiff < closestTimeDiff) {
+          // Sentiment should be within 1 second of the message (before or after)
+          if (timeDiff <= 1000 && timeDiff < closestTimeDiff) {
             closestSentiment = sentimentData;
             closestTimeDiff = timeDiff;
             closestTimestampKey = sentimentTimestamp;
@@ -226,7 +226,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
         if (item.content) {
           for (const content of item.content) {
             if (content.type === 'input_text' && content.text) {
-              // Find the closest sentiment by timestamp (within 10 seconds in either direction)
+              // Find the closest sentiment by timestamp (within 1 second in either direction)
               let closestSentiment = null;
               let closestTimeDiff = Infinity;
               let closestTimestampKey: string | null = null;
@@ -236,7 +236,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                 const sentimentTime = new Date(sentimentTimestamp).getTime();
                 const timeDiff = Math.abs(messageTime - sentimentTime);
                 
-                if (timeDiff <= 10000 && timeDiff < closestTimeDiff) {
+                if (timeDiff <= 1000 && timeDiff < closestTimeDiff) {
                   closestSentiment = sentimentData;
                   closestTimeDiff = timeDiff;
                   closestTimestampKey = sentimentTimestamp;
@@ -255,7 +255,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                 sentiment: closestSentiment,
               });
             } else if (content.type === 'input_audio' && content.transcript) {
-              // Find the closest sentiment by timestamp (within 10 seconds in either direction)
+              // Find the closest sentiment by timestamp (within 1 second in either direction)
               let closestSentiment = null;
               let closestTimeDiff = Infinity;
               let closestTimestampKey: string | null = null;
@@ -265,7 +265,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                 const sentimentTime = new Date(sentimentTimestamp).getTime();
                 const timeDiff = Math.abs(messageTime - sentimentTime);
                 
-                if (timeDiff <= 10000 && timeDiff < closestTimeDiff) {
+                if (timeDiff <= 1000 && timeDiff < closestTimeDiff) {
                   closestSentiment = sentimentData;
                   closestTimeDiff = timeDiff;
                   closestTimestampKey = sentimentTimestamp;
