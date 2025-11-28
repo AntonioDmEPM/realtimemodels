@@ -48,8 +48,8 @@ export default function VoiceControls({
   onModeChange,
   mode,
 }: VoiceControlsProps) {
-  const [voice, setVoice] = useState('ash');
-  const [model, setModel] = useState('gpt-4o-realtime-preview-2024-12-17');
+  const [voice, setVoice] = useState('sage');
+  const [model, setModel] = useState('gpt-realtime');
 
   useEffect(() => {
     const savedModel = localStorage.getItem('selected_model');
@@ -65,7 +65,7 @@ export default function VoiceControls({
       onModelChange?.(savedModel);
     } else {
       // Set default model based on mode
-      const defaultModel = mode === 'voice' ? 'gpt-4o-realtime-preview-2024-12-17' : 'gpt-5-mini';
+      const defaultModel = mode === 'voice' ? 'gpt-realtime' : 'gpt-5-mini';
       setModel(defaultModel);
       onModelChange?.(defaultModel);
     }
@@ -82,7 +82,7 @@ export default function VoiceControls({
     onModeChange?.(newMode);
     
     // Set appropriate default model for the mode
-    const defaultModel = newMode === 'voice' ? 'gpt-4o-realtime-preview-2024-12-17' : 'gpt-5-mini';
+    const defaultModel = newMode === 'voice' ? 'gpt-realtime' : 'gpt-5-mini';
     handleModelChange(defaultModel);
   };
 
