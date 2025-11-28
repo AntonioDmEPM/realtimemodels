@@ -14,3 +14,9 @@ verify_jwt = true
 
 [functions.web-search]
 verify_jwt = true
+
+[functions.agent-orchestrator]
+verify_jwt = false
+
+[functions.suggest-prompt]
+verify_jwt = true
