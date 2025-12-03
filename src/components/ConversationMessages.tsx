@@ -64,8 +64,9 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
     // First pass: collect all sentiment events by timestamp
     events.forEach((event) => {
       if (event.data.type === 'sentiment.detected') {
-        console.log('Found sentiment detection:', event.data, 'at timestamp:', event.timestamp);
-        sentimentMap.set(event.data.timestamp, {
+        console.log('Found sentiment detection:', event.data, 'at outer timestamp:', event.timestamp);
+        // Use event.timestamp (outer) for consistent matching with other events
+        sentimentMap.set(event.timestamp, {
           sentiment: event.data.sentiment,
           confidence: event.data.confidence,
           reason: event.data.reason
