@@ -44,6 +44,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
       case 'mixed':
         return 'bg-yellow-600 text-white rounded-tr-sm';
       case 'neutral':
+        return 'bg-blue-600 text-white rounded-tr-sm';
       default:
         return 'bg-primary text-primary-foreground rounded-tr-sm';
     }
@@ -107,8 +108,8 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
           const sentimentTime = new Date(sentimentTimestamp).getTime();
           const timeDiff = Math.abs(messageTime - sentimentTime);
           
-          // Sentiment should be within 1 second of the message (before or after)
-          if (timeDiff <= 1000 && timeDiff < closestTimeDiff) {
+          // Sentiment should be within 5 seconds of the message (sentiment detection can take time)
+          if (timeDiff <= 5000 && timeDiff < closestTimeDiff) {
             closestSentiment = sentimentData;
             closestTimeDiff = timeDiff;
             closestTimestampKey = sentimentTimestamp;
@@ -237,7 +238,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                 const sentimentTime = new Date(sentimentTimestamp).getTime();
                 const timeDiff = Math.abs(messageTime - sentimentTime);
                 
-                if (timeDiff <= 1000 && timeDiff < closestTimeDiff) {
+                if (timeDiff <= 5000 && timeDiff < closestTimeDiff) {
                   closestSentiment = sentimentData;
                   closestTimeDiff = timeDiff;
                   closestTimestampKey = sentimentTimestamp;
@@ -266,7 +267,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                 const sentimentTime = new Date(sentimentTimestamp).getTime();
                 const timeDiff = Math.abs(messageTime - sentimentTime);
                 
-                if (timeDiff <= 1000 && timeDiff < closestTimeDiff) {
+                if (timeDiff <= 5000 && timeDiff < closestTimeDiff) {
                   closestSentiment = sentimentData;
                   closestTimeDiff = timeDiff;
                   closestTimestampKey = sentimentTimestamp;
