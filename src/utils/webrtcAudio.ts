@@ -72,11 +72,33 @@ export async function createRealtimeSession(
   const pc = new RTCPeerConnection();
 
   // Only play audio output in voice mode
+  let audioElement: HTMLAudioElement | null = null;
+  
   if (!textOnly) {
     pc.ontrack = (e) => {
-      const audio = new Audio();
-      audio.srcObject = e.streams[0];
-      audio.play();
+      console.log('🔊 Audio track received from OpenAI');
+      
+      // Reuse audio element or create new one
+      if (!audioElement) {
+        audioElement = new Audio();
+        audioElement.autoplay = true;
+      }
+      
+      audioElement.srcObject = e.streams[0];
+      
+      // Handle play with proper error catching
+      const playPromise = audioElement.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('✅ Audio playback started successfully');
+          })
+          .catch((error) => {
+            console.error('❌ Audio playback failed:', error);
+            // Try to play again on user interaction
+            console.log('Audio may require user interaction to play');
+          });
+      }
     };
   }
 
@@ -91,7 +113,7 @@ export async function createRealtimeSession(
     try {
       const eventData = JSON.parse(e.data);
       
-      // Log ALL events to debug transcription issues
+      // Log ALL events to debug issues
       console.log('🔔 EVENT:', eventData.type);
       
       // Log full details for critical events
@@ -99,6 +121,24 @@ export async function createRealtimeSession(
           eventData.type?.includes('conversation.item') ||
           eventData.type === 'session.updated') {
         console.log('📝 Full Event Data:', JSON.stringify(eventData, null, 2));
+      }
+      
+      // Log response events for debugging
+      if (eventData.type === 'response.created') {
+        console.log('🚀 Response started:', eventData.response?.id);
+      }
+      if (eventData.type === 'response.audio.delta') {
+        console.log('🔊 Audio delta received, length:', eventData.delta?.length || 0);
+      }
+      if (eventData.type === 'response.audio.done') {
+        console.log('✅ Audio response complete');
+      }
+      if (eventData.type === 'response.done') {
+        console.log('📨 Response done:', {
+          status: eventData.response?.status,
+          reason: eventData.response?.status_details?.reason,
+          outputTokens: eventData.response?.usage?.output_tokens
+        });
       }
       
       // Confirm session was updated by OpenAI

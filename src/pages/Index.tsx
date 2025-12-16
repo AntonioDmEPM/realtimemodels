@@ -52,7 +52,7 @@ export default function Index() {
   const [selectedModel, setSelectedModel] = useState('gpt-4o-realtime-preview-2024-12-17');
   const [selectedVoice, setSelectedVoice] = useState('alloy');
   const [selectedChatModel, setSelectedChatModel] = useState('google/gemini-2.5-flash');
-  const [botPrompt, setBotPrompt] = useState('You are a helpful AI assistant. Be concise and friendly in your responses.\n\nCRITICAL: You MUST call the detect_sentiment function after EVERY user message to analyze their emotional tone (positive, neutral, negative, or mixed). Include confidence (0-1) and a brief reason. This is essential for adapting your tone appropriately.\n\nExamples:\n- User sounds frustrated → detect_sentiment({sentiment: "negative", confidence: 0.8, reason: "User expressing frustration"})\n- User is enthusiastic → detect_sentiment({sentiment: "positive", confidence: 0.9, reason: "User showing excitement"})\n- Casual conversation → detect_sentiment({sentiment: "neutral", confidence: 0.7, reason: "Casual, relaxed tone"})');
+  const [botPrompt, setBotPrompt] = useState('You are a helpful AI assistant. Be concise and friendly in your responses. Use available tools like web_search when you need current information.');
   const [knowledgeBaseId, setKnowledgeBaseId] = useState<string | undefined>(undefined);
   const [pricingConfig, setPricingConfig] = useState<PricingConfig>({
     audioInputCost: 0.00004,
