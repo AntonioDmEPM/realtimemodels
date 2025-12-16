@@ -1,5 +1,4 @@
-import { Settings, MessageSquare, Database, Search, Activity, Sparkles } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Settings, MessageSquare, Database, Search, Activity } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -8,7 +7,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar';
 
@@ -28,7 +26,6 @@ interface AppSidebarProps {
 
 export function AppSidebar({ currentView, onViewChange, isSessionActive = false }: AppSidebarProps) {
   const { open } = useSidebar();
-  const navigate = useNavigate();
 
   return (
     <Sidebar collapsible="icon">
@@ -53,19 +50,6 @@ export function AppSidebar({ currentView, onViewChange, isSessionActive = false 
                   </SidebarMenuItem>
                 );
               })}
-              
-              <SidebarSeparator className="my-2" />
-              
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => navigate('/agents')}
-                  tooltip="Multi-Agent System"
-                  className="text-primary"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  {open && <span>Agents</span>}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
