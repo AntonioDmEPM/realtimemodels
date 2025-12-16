@@ -71,10 +71,49 @@ export async function createRealtimeSession(
 ): Promise<{ pc: RTCPeerConnection; dc: RTCDataChannel }> {
   const pc = new RTCPeerConnection();
 
+  // Connection state logging (helps debug "no audio" situations)
+  pc.onconnectionstatechange = () => {
+    console.log('🔗 pc.connectionState:', pc.connectionState);
+  };
+  pc.oniceconnectionstatechange = () => {
+    console.log('🧊 pc.iceConnectionState:', pc.iceConnectionState);
+  };
+  pc.onsignalingstatechange = () => {
+    console.log('📡 pc.signalingState:', pc.signalingState);
+  };
+
   // Only play audio output in voice mode
   let audioElement: HTMLAudioElement | null = null;
 
   if (!textOnly) {
+    // "Unlock" audio playback as early as possible (while we’re still in the user gesture)
+    audioElement = new Audio();
+    audioElement.autoplay = true;
+    audioElement.muted = true; // start muted to avoid any autoplay restrictions
+    audioElement.volume = 1;
+
+    // iOS/Safari friendliness
+    (audioElement as any).playsInline = true;
+    audioElement.setAttribute('playsinline', 'true');
+
+    // Keep it out of the layout but still "playable" across browsers
+    audioElement.style.position = 'fixed';
+    audioElement.style.left = '-9999px';
+    audioElement.style.top = '0';
+    audioElement.style.width = '1px';
+    audioElement.style.height = '1px';
+    audioElement.style.opacity = '0';
+    audioElement.style.pointerEvents = 'none';
+
+    audioElement.srcObject = new MediaStream();
+    if (document.body && !audioElement.isConnected) {
+      document.body.appendChild(audioElement);
+    }
+
+    audioElement.play().catch((err) => {
+      console.warn('⚠️ Audio unlock play() blocked:', err);
+    });
+
     pc.ontrack = (e) => {
       console.log('🔊 Audio track received from OpenAI', {
         streams: e.streams?.length ?? 0,
@@ -84,18 +123,15 @@ export async function createRealtimeSession(
 
       if (e.track?.kind !== 'audio') return;
 
-      // Reuse audio element or create new one
       if (!audioElement) {
         audioElement = new Audio();
         audioElement.autoplay = true;
-        audioElement.muted = false;
+        audioElement.muted = true;
         audioElement.volume = 1;
 
-        // iOS/Safari friendliness
         (audioElement as any).playsInline = true;
         audioElement.setAttribute('playsinline', 'true');
 
-        // Keep it out of the layout but still "playable" across browsers
         audioElement.style.position = 'fixed';
         audioElement.style.left = '-9999px';
         audioElement.style.top = '0';
@@ -108,12 +144,12 @@ export async function createRealtimeSession(
       // Some browsers may not populate `e.streams`; fall back to a stream from the track.
       const stream = e.streams?.[0] ?? new MediaStream([e.track]);
       audioElement.srcObject = stream;
+      audioElement.muted = false;
 
       if (document.body && !audioElement.isConnected) {
         document.body.appendChild(audioElement);
       }
 
-      // Handle play with proper error catching
       const playPromise = audioElement.play();
       if (playPromise !== undefined) {
         playPromise
@@ -197,33 +233,55 @@ export async function createRealtimeSession(
               interrupt_response: false,
             };
 
-        const resolvedTurnDetection =
-          realtimeSettings?.turnDetection !== undefined
-            ? realtimeSettings.turnDetection
-            : defaultTurnDetection;
+        const baseModalities: Array<'text' | 'audio'> =
+          realtimeSettings?.modalities ?? (textOnly ? ['text'] : ['audio', 'text']);
 
-        const normalizedTurnDetection =
-          resolvedTurnDetection && typeof resolvedTurnDetection === 'object'
-            ? {
-                create_response: true,
-                interrupt_response: false,
-                ...resolvedTurnDetection,
-              }
-            : resolvedTurnDetection;
+        // In voice mode, always include audio so we don't accidentally disable output audio
+        const normalizedModalities = textOnly
+          ? baseModalities
+          : (Array.from(new Set([...baseModalities, 'audio'])) as Array<'text' | 'audio'>);
+
+        const normalizeTurnDetection = (td: any) => {
+          if (textOnly) return null;
+          if (!td) return defaultTurnDetection;
+          if (typeof td !== 'object') return defaultTurnDetection;
+          if (td.type === 'none') return null;
+
+          // Accept both camelCase (UI) and snake_case (API)
+          const prefixPaddingMs = td.prefix_padding_ms ?? td.prefixPaddingMs ?? 300;
+          const silenceDurationMs = td.silence_duration_ms ?? td.silenceDurationMs ?? 1000;
+
+          return {
+            type: 'server_vad',
+            threshold: td.threshold ?? 0.65,
+            prefix_padding_ms: prefixPaddingMs,
+            silence_duration_ms: silenceDurationMs,
+            create_response: true,
+            interrupt_response: false,
+          };
+        };
+
+        // If VAD is disabled in UI, we still need a working voice flow.
+        // Until we have a dedicated "manual push-to-talk" UX, force server VAD in voice mode.
+        const normalizedTurnDetection = normalizeTurnDetection(realtimeSettings?.turnDetection);
 
         const sessionUpdate: any = {
           type: 'session.update',
           session: {
             instructions: instructions,
-            modalities:
-              realtimeSettings?.modalities || (textOnly ? ['text'] : ['audio', 'text']),
+            modalities: normalizedModalities,
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             turn_detection: normalizedTurnDetection,
-            temperature: realtimeSettings?.temperature || 0.8,
-            max_response_output_tokens: realtimeSettings?.maxOutputTokens || 'inf'
-          }
+            temperature: realtimeSettings?.temperature ?? 0.8,
+            max_response_output_tokens: realtimeSettings?.maxOutputTokens ?? 'inf',
+          },
         };
+
+        console.log('🎛️ session.update (client) ->', {
+          modalities: normalizedModalities,
+          turn_detection: normalizedTurnDetection,
+        });
 
         // CRITICAL: Always enable transcription unless explicitly disabled or in text-only mode
         if (!textOnly) {
