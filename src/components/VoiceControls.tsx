@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
+import { AudioOutputTest } from '@/components/AudioOutputTest';
 
 interface VoiceControlsProps {
   onStart: (voice: string, model: string) => void;
@@ -167,6 +168,12 @@ export default function VoiceControls({
           <p className={`text-sm font-medium transition-smooth ${getStatusColor()}`}>
             {statusMessage}
           </p>
+        )}
+
+        {mode === 'voice' && (
+          <div className="pt-2 border-t border-border/50">
+            <AudioOutputTest />
+          </div>
         )}
       </div>
     </Card>
