@@ -74,11 +74,11 @@ serve(async (req) => {
 
     const { model, voice, instructions } = await req.json();
     
-    // Input validation - using new 2025-12-15 model snapshots
-    const allowedModels = ['gpt-realtime-mini-2025-12-15', 'gpt-4o-realtime-preview-2024-12-17'];
+    // Input validation
+    const allowedModels = ['gpt-4o-realtime-preview-2024-12-17', 'gpt-realtime-mini'];
     const allowedVoices = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'];
     
-    const validatedModel = model && allowedModels.includes(model) ? model : 'gpt-realtime-mini-2025-12-15';
+    const validatedModel = model && allowedModels.includes(model) ? model : 'gpt-4o-realtime-preview-2024-12-17';
     const validatedVoice = voice && allowedVoices.includes(voice) ? voice : 'ash';
     
     // Use provided instructions or fallback to default
