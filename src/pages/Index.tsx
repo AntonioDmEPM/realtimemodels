@@ -41,6 +41,7 @@ export default function Index() {
   const [statusMessage, setStatusMessage] = useState('');
   const [statusType, setStatusType] = useState<'idle' | 'success' | 'error' | 'connecting'>('idle');
   const [isAudioActive, setIsAudioActive] = useState(false);
+  const [speakingState, setSpeakingState] = useState<'user' | 'assistant' | null>(null);
   const [currentStats, setCurrentStats] = useState<SessionStats>(initialStats);
   const [sessionStats, setSessionStats] = useState<SessionStats>(initialStats);
   const [events, setEvents] = useState<EventEntry[]>([]);
@@ -165,13 +166,15 @@ export default function Index() {
       console.log('Sentiment detected:', sentimentData);
     }
 
-    // Track timeline segments
+    // Track timeline segments and speaking state
     if (eventData.type === 'input_audio_buffer.speech_started') {
+      setSpeakingState('user');
       setCurrentSegment({
         start: Date.now(),
         speaker: 'user'
       });
     } else if (eventData.type === 'input_audio_buffer.speech_stopped') {
+      setSpeakingState(null);
       if (currentSegment?.start && currentSegment.speaker === 'user') {
         const end = Date.now();
         setTimelineSegments(prev => [...prev, {
@@ -187,6 +190,7 @@ export default function Index() {
         setCurrentSegment(null);
       }
     } else if (eventData.type === 'response.audio.delta') {
+      setSpeakingState('assistant');
       if (!currentSegment || currentSegment.speaker !== 'assistant') {
         setCurrentSegment({
           start: Date.now(),
@@ -194,6 +198,7 @@ export default function Index() {
         });
       }
     } else if (eventData.type === 'response.audio.done') {
+      setSpeakingState(null);
       if (currentSegment?.start && currentSegment.speaker === 'assistant') {
         const end = Date.now();
         const segment: TimelineSegment = {
@@ -1131,6 +1136,7 @@ export default function Index() {
     setCurrentSegment(null);
     setCurrentSentiment(null);
     setIsAudioActive(false);
+    setSpeakingState(null);
     setStatusMessage('');
     setStatusType('idle');
     
@@ -1240,6 +1246,8 @@ export default function Index() {
               sessionStats.audioOutputTokens + sessionStats.textOutputTokens
             }
             events={events}
+            audioStream={audioStream}
+            speakingState={speakingState}
             onStart={() => startSession(selectedVoice, selectedModel)}
             onStop={stopSession}
             onResetAll={resetAll}
