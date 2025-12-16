@@ -223,11 +223,15 @@ export async function createRealtimeSession(
         const callId = eventData.call_id;
         const functionName = eventData.name;
         const args = JSON.parse(eventData.arguments);
-        
+
+        // In voice mode we use server VAD, so we should NOT force extra responses.
+        // Manually creating responses here causes duplicate assistant outputs.
+        const shouldManuallyCreateResponse = !!textOnly;
+
         if (functionName === 'web_search') {
           console.log('AI requesting web search:', args.query);
           console.log('Using Supabase token:', supabaseToken ? 'Token present' : 'NO TOKEN');
-          
+
           // Store the search request in an event for display
           onMessage({
             type: 'web_search.request',
@@ -235,7 +239,7 @@ export async function createRealtimeSession(
             query: args.query,
             timestamp: new Date().toISOString()
           });
-          
+
           if (!supabaseToken) {
             console.error('Missing Supabase token for web search');
             const functionOutput = {
@@ -247,10 +251,12 @@ export async function createRealtimeSession(
               }
             };
             dc.send(JSON.stringify(functionOutput));
-            dc.send(JSON.stringify({ type: 'response.create' }));
+            if (shouldManuallyCreateResponse) {
+              dc.send(JSON.stringify({ type: 'response.create' }));
+            }
             return;
           }
-          
+
           // Call the web-search edge function
           fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/web-search`, {
             method: 'POST',
@@ -262,61 +268,65 @@ export async function createRealtimeSession(
               query: args.query
             })
           })
-          .then(res => res.json())
-          .then(data => {
-            console.log('Web search results:', data.results);
-            
-            // Store the search results in an event for display
-            onMessage({
-              type: 'web_search.results',
-              call_id: callId,
-              query: args.query,
-              results: data.results || [],
-              answer_box: data.answer_box || null,
-              timestamp: new Date().toISOString()
+            .then(res => res.json())
+            .then(data => {
+              console.log('Web search results:', data.results);
+
+              // Store the search results in an event for display
+              onMessage({
+                type: 'web_search.results',
+                call_id: callId,
+                query: args.query,
+                results: data.results || [],
+                answer_box: data.answer_box || null,
+                timestamp: new Date().toISOString()
+              });
+
+              // Format search results for the AI
+              const searchContext = `Web Search Results for "${data.query}":\n\n` +
+                (data.answer_box ? `Direct Answer: ${data.answer_box.answer}\n\n` : '') +
+                (data.results || []).map((r: any, i: number) =>
+                  `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.link}`
+                ).join('\n\n');
+
+              // Send the search results back to the AI
+              const functionOutput = {
+                type: 'conversation.item.create',
+                item: {
+                  type: 'function_call_output',
+                  call_id: callId,
+                  output: searchContext
+                }
+              };
+
+              dc.send(JSON.stringify(functionOutput));
+
+              // Only needed in text-only mode
+              if (shouldManuallyCreateResponse) {
+                dc.send(JSON.stringify({ type: 'response.create' }));
+              }
+            })
+            .catch(err => {
+              console.error('Error performing web search:', err);
+
+              // Send error back to AI
+              const functionOutput = {
+                type: 'conversation.item.create',
+                item: {
+                  type: 'function_call_output',
+                  call_id: callId,
+                  output: JSON.stringify({ error: 'Failed to perform web search' })
+                }
+              };
+
+              dc.send(JSON.stringify(functionOutput));
+              if (shouldManuallyCreateResponse) {
+                dc.send(JSON.stringify({ type: 'response.create' }));
+              }
             });
-            
-            // Format search results for the AI
-            const searchContext = `Web Search Results for "${data.query}":\n\n` +
-              (data.answer_box ? `Direct Answer: ${data.answer_box.answer}\n\n` : '') +
-              (data.results || []).map((r: any, i: number) => 
-                `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.link}`
-              ).join('\n\n');
-            
-            // Send the search results back to the AI
-            const functionOutput = {
-              type: 'conversation.item.create',
-              item: {
-                type: 'function_call_output',
-                call_id: callId,
-                output: searchContext
-              }
-            };
-            
-            dc.send(JSON.stringify(functionOutput));
-            
-            // Trigger AI to generate a response with the search results
-            dc.send(JSON.stringify({ type: 'response.create' }));
-          })
-          .catch(err => {
-            console.error('Error performing web search:', err);
-            
-            // Send error back to AI
-            const functionOutput = {
-              type: 'conversation.item.create',
-              item: {
-                type: 'function_call_output',
-                call_id: callId,
-                output: JSON.stringify({ error: 'Failed to perform web search' })
-              }
-            };
-            
-            dc.send(JSON.stringify(functionOutput));
-            dc.send(JSON.stringify({ type: 'response.create' }));
-          });
         } else if (functionName === 'search_knowledge_base' && knowledgeBaseId) {
           console.log('AI requesting knowledge base search:', args.query);
-          
+
           // Call the search-knowledge function
           fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-knowledge`, {
             method: 'POST',
@@ -329,53 +339,56 @@ export async function createRealtimeSession(
               knowledge_base_id: knowledgeBaseId
             })
           })
-          .then(res => res.json())
-          .then(data => {
-            console.log('Knowledge base search results:', data.results);
-            
-            // Store the knowledge results in an event for display
-            onMessage({
-              type: 'knowledge_base.search_results',
-              call_id: callId,
-              query: args.query,
-              results: data.results || [],
-              timestamp: new Date().toISOString()
+            .then(res => res.json())
+            .then(data => {
+              console.log('Knowledge base search results:', data.results);
+
+              // Store the knowledge results in an event for display
+              onMessage({
+                type: 'knowledge_base.search_results',
+                call_id: callId,
+                query: args.query,
+                results: data.results || [],
+                timestamp: new Date().toISOString()
+              });
+
+              // Send the search results back to the AI
+              const functionOutput = {
+                type: 'conversation.item.create',
+                item: {
+                  type: 'function_call_output',
+                  call_id: callId,
+                  output: JSON.stringify(data.results || [])
+                }
+              };
+
+              dc.send(JSON.stringify(functionOutput));
+
+              if (shouldManuallyCreateResponse) {
+                dc.send(JSON.stringify({ type: 'response.create' }));
+              }
+            })
+            .catch(err => {
+              console.error('Error searching knowledge base:', err);
+
+              // Send error back to AI
+              const functionOutput = {
+                type: 'conversation.item.create',
+                item: {
+                  type: 'function_call_output',
+                  call_id: callId,
+                  output: JSON.stringify({ error: 'Failed to search knowledge base' })
+                }
+              };
+
+              dc.send(JSON.stringify(functionOutput));
+              if (shouldManuallyCreateResponse) {
+                dc.send(JSON.stringify({ type: 'response.create' }));
+              }
             });
-            
-            // Send the search results back to the AI
-            const functionOutput = {
-              type: 'conversation.item.create',
-              item: {
-                type: 'function_call_output',
-                call_id: callId,
-                output: JSON.stringify(data.results || [])
-              }
-            };
-            
-            dc.send(JSON.stringify(functionOutput));
-            
-            // Trigger AI to generate a response with the search results
-            dc.send(JSON.stringify({ type: 'response.create' }));
-          })
-          .catch(err => {
-            console.error('Error searching knowledge base:', err);
-            
-            // Send error back to AI
-            const functionOutput = {
-              type: 'conversation.item.create',
-              item: {
-                type: 'function_call_output',
-                call_id: callId,
-                output: JSON.stringify({ error: 'Failed to search knowledge base' })
-              }
-            };
-            
-            dc.send(JSON.stringify(functionOutput));
-            dc.send(JSON.stringify({ type: 'response.create' }));
-          });
         } else if (functionName === 'detect_sentiment') {
           console.log('AI detecting sentiment:', args);
-          
+
           // Store sentiment event and pass it back to the parent
           onMessage({
             type: 'sentiment.detected',
@@ -385,25 +398,28 @@ export async function createRealtimeSession(
             reason: args.reason,
             timestamp: new Date().toISOString()
           });
-          
+
           // Acknowledge the sentiment detection
           const functionOutput = {
             type: 'conversation.item.create',
             item: {
               type: 'function_call_output',
               call_id: callId,
-              output: JSON.stringify({ 
+              output: JSON.stringify({
                 status: 'acknowledged',
                 message: 'Sentiment recorded and tone will be adapted accordingly'
               })
             }
           };
-          
+
           dc.send(JSON.stringify(functionOutput));
-          dc.send(JSON.stringify({ type: 'response.create' }));
+          // IMPORTANT: do NOT force response.create in voice/server_vad mode (avoids duplicate outputs)
+          if (shouldManuallyCreateResponse) {
+            dc.send(JSON.stringify({ type: 'response.create' }));
+          }
         }
       }
-      
+
       onMessage(eventData);
     } catch (err) {
       console.error('Error parsing event data:', err);
