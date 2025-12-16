@@ -3,7 +3,6 @@ import { cn } from '@/lib/utils';
 
 interface VoiceVisualizerProps {
   inputStream?: MediaStream | null;
-  outputStream?: MediaStream | null;
   isConnected: boolean;
   isSpeaking?: 'user' | 'assistant' | null;
   size?: number;
@@ -12,24 +11,27 @@ interface VoiceVisualizerProps {
 
 export default function VoiceVisualizer({ 
   inputStream, 
-  outputStream,
   isConnected,
   isSpeaking,
-  size = 200,
+  size = 280,
   className
 }: VoiceVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | null>(null);
   const inputAnalyzerRef = useRef<AnalyserNode | null>(null);
-  const outputAnalyzerRef = useRef<AnalyserNode | null>(null);
   const inputContextRef = useRef<AudioContext | null>(null);
-  const outputContextRef = useRef<AudioContext | null>(null);
   
-  const [inputLevel, setInputLevel] = useState(0);
-  const [outputLevel, setOutputLevel] = useState(0);
+  // Smooth color transition state
+  const [colorTransition, setColorTransition] = useState(0); // 0 = blue (user), 1 = purple (assistant)
+  const targetColorRef = useRef(0);
+  
+  // Update target color based on speaking state
+  useEffect(() => {
+    targetColorRef.current = isSpeaking === 'assistant' ? 1 : 0;
+  }, [isSpeaking]);
 
   // Setup audio analyzer for a stream
-  const setupAnalyzer = useCallback((stream: MediaStream, isInput: boolean) => {
+  const setupAnalyzer = useCallback((stream: MediaStream) => {
     try {
       const audioContext = new AudioContext();
       const source = audioContext.createMediaStreamSource(stream);
@@ -38,13 +40,8 @@ export default function VoiceVisualizer({
       analyzer.smoothingTimeConstant = 0.8;
       source.connect(analyzer);
       
-      if (isInput) {
-        inputContextRef.current = audioContext;
-        inputAnalyzerRef.current = analyzer;
-      } else {
-        outputContextRef.current = audioContext;
-        outputAnalyzerRef.current = analyzer;
-      }
+      inputContextRef.current = audioContext;
+      inputAnalyzerRef.current = analyzer;
       
       return analyzer;
     } catch (err) {
@@ -56,7 +53,7 @@ export default function VoiceVisualizer({
   // Setup input stream analyzer
   useEffect(() => {
     if (inputStream && isConnected) {
-      setupAnalyzer(inputStream, true);
+      setupAnalyzer(inputStream);
     }
     
     return () => {
@@ -84,8 +81,8 @@ export default function VoiceVisualizer({
 
     const centerX = size / 2;
     const centerY = size / 2;
-    const baseRadius = size * 0.35;
-    const numPoints = 64;
+    const baseRadius = size * 0.38;
+    const numPoints = 80;
 
     const getFrequencyData = (analyzer: AnalyserNode | null): Uint8Array => {
       if (!analyzer) return new Uint8Array(128).fill(0);
@@ -99,48 +96,83 @@ export default function VoiceVisualizer({
       return sum / data.length / 255;
     };
 
+    // Color interpolation function
+    const lerpColor = (t: number) => {
+      // Blue (user): hsl(217, 91%, 60%) -> Purple (assistant): hsl(280, 87%, 65%)
+      const h = 217 + (280 - 217) * t;
+      const s = 91 + (87 - 91) * t;
+      const l = 60 + (65 - 60) * t;
+      return { h, s, l };
+    };
+
     let phase = 0;
+    let currentColor = 0;
     
     const draw = () => {
       ctx.clearRect(0, 0, size, size);
       
+      // Smooth color transition
+      const colorSpeed = 0.05;
+      if (currentColor < targetColorRef.current) {
+        currentColor = Math.min(currentColor + colorSpeed, targetColorRef.current);
+      } else if (currentColor > targetColorRef.current) {
+        currentColor = Math.max(currentColor - colorSpeed, targetColorRef.current);
+      }
+      setColorTransition(currentColor);
+      
+      const color = lerpColor(currentColor);
+      const primaryHsl = `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
+      const primaryHslFaded = `hsla(${color.h}, ${color.s}%, ${color.l}%, 0)`;
+      const primaryHslGlow = `hsla(${color.h}, ${color.s}%, ${color.l}%, 0.3)`;
+      
       // Get frequency data
       const inputData = getFrequencyData(inputAnalyzerRef.current);
       const currentInputLevel = getAverageLevel(inputData);
-      setInputLevel(currentInputLevel);
       
       // Determine active level based on who's speaking
       const activeLevel = isSpeaking === 'user' ? currentInputLevel : 
-                         isSpeaking === 'assistant' ? 0.5 + Math.sin(Date.now() / 200) * 0.3 : 
-                         currentInputLevel * 0.3;
+                         isSpeaking === 'assistant' ? 0.5 + Math.sin(Date.now() / 150) * 0.3 : 
+                         currentInputLevel * 0.2;
       
-      // Draw outer glow
-      const glowIntensity = activeLevel * 30;
+      // Draw outer glow rings
+      const glowIntensity = activeLevel * 40;
+      
+      // Multiple glow layers for depth
+      for (let i = 3; i >= 0; i--) {
+        const glowRadius = baseRadius + 15 + glowIntensity + i * 15;
+        const alpha = 0.1 - i * 0.02;
+        ctx.strokeStyle = `hsla(${color.h}, ${color.s}%, ${color.l}%, ${alpha})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, glowRadius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      
+      // Draw main glow
       const gradient = ctx.createRadialGradient(
-        centerX, centerY, baseRadius - 10,
-        centerX, centerY, baseRadius + glowIntensity + 20
+        centerX, centerY, baseRadius - 20,
+        centerX, centerY, baseRadius + glowIntensity + 30
       );
-      
-      const primaryColor = isSpeaking === 'user' ? 'hsl(217, 91%, 60%)' : // Blue for user
-                          isSpeaking === 'assistant' ? 'hsl(280, 87%, 65%)' : // Purple for assistant
-                          'hsl(217, 91%, 60%)'; // Default blue
-      
-      const primaryColorFaded = isSpeaking === 'user' ? 'hsla(217, 91%, 60%, 0)' :
-                               isSpeaking === 'assistant' ? 'hsla(280, 87%, 65%, 0)' :
-                               'hsla(217, 91%, 60%, 0)';
-      
-      gradient.addColorStop(0, primaryColor);
-      gradient.addColorStop(1, primaryColorFaded);
+      gradient.addColorStop(0, primaryHslGlow);
+      gradient.addColorStop(0.5, `hsla(${color.h}, ${color.s}%, ${color.l}%, 0.15)`);
+      gradient.addColorStop(1, primaryHslFaded);
       
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(centerX, centerY, baseRadius + glowIntensity + 20, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, baseRadius + glowIntensity + 30, 0, Math.PI * 2);
       ctx.fill();
 
       // Draw inner circle (dark background)
-      ctx.fillStyle = 'hsl(var(--background))';
+      const innerGradient = ctx.createRadialGradient(
+        centerX, centerY - 20, 0,
+        centerX, centerY, baseRadius
+      );
+      innerGradient.addColorStop(0, 'hsl(222, 47%, 14%)');
+      innerGradient.addColorStop(1, 'hsl(222, 47%, 8%)');
+      
+      ctx.fillStyle = innerGradient;
       ctx.beginPath();
-      ctx.arc(centerX, centerY, baseRadius - 5, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, baseRadius - 8, 0, Math.PI * 2);
       ctx.fill();
 
       // Draw waveform border
@@ -150,13 +182,17 @@ export default function VoiceVisualizer({
         const angle = (i / numPoints) * Math.PI * 2 - Math.PI / 2;
         
         // Get frequency amplitude for this point
-        const freqIndex = Math.floor((i / numPoints) * inputData.length * 0.5);
+        const freqIndex = Math.floor((i / numPoints) * inputData.length * 0.6);
         const amplitude = inputData[freqIndex] / 255;
         
-        // Calculate wave displacement
+        // Calculate wave displacement with multiple frequencies
+        const wave1 = Math.sin(angle * 6 + phase) * 3;
+        const wave2 = Math.sin(angle * 12 + phase * 1.5) * 2;
+        const wave3 = Math.sin(angle * 3 + phase * 0.7) * 4;
+        
         const waveAmplitude = isSpeaking ? 
-          Math.max(8, amplitude * 25 + Math.sin(angle * 8 + phase) * 5 * activeLevel) :
-          2 + Math.sin(angle * 4 + phase * 0.5) * 2;
+          Math.max(5, amplitude * 30 + (wave1 + wave2 + wave3) * activeLevel) :
+          3 + (wave1 + wave3) * 0.3;
         
         const radius = baseRadius + waveAmplitude;
         
@@ -172,49 +208,72 @@ export default function VoiceVisualizer({
       
       ctx.closePath();
       
-      // Stroke with gradient
-      const strokeGradient = ctx.createLinearGradient(0, 0, size, size);
-      if (isSpeaking === 'assistant') {
-        strokeGradient.addColorStop(0, 'hsl(280, 87%, 65%)');
-        strokeGradient.addColorStop(0.5, 'hsl(320, 87%, 60%)');
-        strokeGradient.addColorStop(1, 'hsl(280, 87%, 65%)');
-      } else {
-        strokeGradient.addColorStop(0, 'hsl(217, 91%, 60%)');
-        strokeGradient.addColorStop(0.5, 'hsl(200, 91%, 55%)');
-        strokeGradient.addColorStop(1, 'hsl(217, 91%, 60%)');
-      }
+      // Animated gradient stroke
+      const strokeGradient = ctx.createLinearGradient(
+        centerX + Math.cos(phase) * baseRadius,
+        centerY + Math.sin(phase) * baseRadius,
+        centerX + Math.cos(phase + Math.PI) * baseRadius,
+        centerY + Math.sin(phase + Math.PI) * baseRadius
+      );
+      
+      const color2 = lerpColor(Math.min(1, currentColor + 0.2));
+      strokeGradient.addColorStop(0, `hsl(${color.h}, ${color.s}%, ${color.l}%)`);
+      strokeGradient.addColorStop(0.5, `hsl(${color2.h}, ${color2.s}%, ${Math.min(80, color2.l + 10)}%)`);
+      strokeGradient.addColorStop(1, `hsl(${color.h}, ${color.s}%, ${color.l}%)`);
       
       ctx.strokeStyle = strokeGradient;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 4;
       ctx.stroke();
 
-      // Draw center icon/indicator
-      ctx.fillStyle = isSpeaking ? primaryColor : 'hsl(var(--muted-foreground))';
-      ctx.beginPath();
+      // Draw center content
+      ctx.fillStyle = primaryHsl;
       
       if (isSpeaking === 'user') {
-        // Microphone icon (simplified)
-        const iconSize = 20;
-        ctx.roundRect(centerX - 6, centerY - iconSize/2, 12, iconSize, 6);
-        ctx.fill();
+        // Microphone icon
+        const iconScale = 1.2;
         ctx.beginPath();
-        ctx.arc(centerX, centerY + iconSize/2 + 4, 10, Math.PI, 0, false);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = primaryColor;
+        ctx.roundRect(centerX - 8 * iconScale, centerY - 14 * iconScale, 16 * iconScale, 24 * iconScale, 8 * iconScale);
+        ctx.fill();
+        
+        ctx.beginPath();
+        ctx.arc(centerX, centerY + 16 * iconScale, 14 * iconScale, Math.PI, 0, false);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = primaryHsl;
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY + 30 * iconScale);
+        ctx.lineTo(centerX, centerY + 40 * iconScale);
         ctx.stroke();
       } else if (isSpeaking === 'assistant') {
-        // Sound wave icon (simplified)
-        for (let j = 0; j < 3; j++) {
-          const barHeight = 8 + j * 8;
-          ctx.fillRect(centerX - 12 + j * 10, centerY - barHeight/2, 4, barHeight);
+        // Animated sound waves
+        const waveCount = 4;
+        for (let j = 0; j < waveCount; j++) {
+          const wavePhase = (Date.now() / 200 + j * 0.5) % (Math.PI * 2);
+          const barHeight = 10 + Math.sin(wavePhase) * (15 + j * 5);
+          ctx.fillRect(centerX - 30 + j * 18, centerY - barHeight / 2, 8, barHeight);
         }
       } else {
-        // Idle circle
-        ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
+        // Idle - breathing circle
+        const breathe = Math.sin(Date.now() / 1000) * 3;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 12 + breathe, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      phase += 0.05;
+      // Status text
+      ctx.fillStyle = `hsla(${color.h}, ${color.s}%, ${color.l}%, 0.8)`;
+      ctx.font = '600 14px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        isSpeaking === 'user' ? 'Listening' : 
+        isSpeaking === 'assistant' ? 'Speaking' : 
+        'Ready',
+        centerX,
+        centerY + baseRadius + 35
+      );
+
+      phase += 0.03;
       animationRef.current = requestAnimationFrame(draw);
     };
 
@@ -231,37 +290,52 @@ export default function VoiceVisualizer({
   if (!isConnected) {
     return (
       <div 
-        className={cn("relative flex items-center justify-center", className)}
-        style={{ width: size, height: size }}
+        className={cn("relative flex flex-col items-center justify-center", className)}
+        style={{ width: size, height: size + 50 }}
       >
-        <div 
-          className="absolute rounded-full border-2 border-muted-foreground/30 transition-all duration-300"
-          style={{ width: size * 0.7, height: size * 0.7 }}
-        />
-        <div 
-          className="absolute rounded-full border border-muted-foreground/20"
-          style={{ width: size * 0.8, height: size * 0.8 }}
-        />
-        <div className="w-4 h-4 rounded-full bg-muted-foreground/50" />
-        <span className="absolute bottom-0 text-xs text-muted-foreground">
-          Disconnected
+        <div className="relative">
+          {/* Outer rings */}
+          <div 
+            className="absolute rounded-full border border-muted-foreground/10 animate-pulse"
+            style={{ 
+              width: size * 0.9, 
+              height: size * 0.9,
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)'
+            }}
+          />
+          <div 
+            className="absolute rounded-full border-2 border-muted-foreground/20"
+            style={{ 
+              width: size * 0.76, 
+              height: size * 0.76,
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)'
+            }}
+          />
+          {/* Inner circle */}
+          <div 
+            className="rounded-full bg-gradient-to-b from-muted/50 to-muted flex items-center justify-center"
+            style={{ width: size * 0.76, height: size * 0.76 }}
+          >
+            <div className="w-6 h-6 rounded-full bg-muted-foreground/30 animate-pulse" />
+          </div>
+        </div>
+        <span className="mt-4 text-sm font-medium text-muted-foreground">
+          Press Start to begin
         </span>
       </div>
     );
   }
 
   return (
-    <div className={cn("relative flex flex-col items-center gap-2", className)}>
+    <div className={cn("relative flex flex-col items-center", className)}>
       <canvas
         ref={canvasRef}
         style={{ width: size, height: size }}
-        className="transition-opacity duration-300"
       />
-      <span className="text-xs text-muted-foreground">
-        {isSpeaking === 'user' ? 'Listening...' : 
-         isSpeaking === 'assistant' ? 'Speaking...' : 
-         'Ready'}
-      </span>
     </div>
   );
 }
