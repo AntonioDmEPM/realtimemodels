@@ -49,7 +49,7 @@ export default function Index() {
   const [dataChannel, setDataChannel] = useState<RTCDataChannel | null>(null);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [audioVisualizer, setAudioVisualizer] = useState<AudioVisualizer | null>(null);
-  const [selectedModel, setSelectedModel] = useState('gpt-4o-realtime-preview-2024-12-17');
+  const [selectedModel, setSelectedModel] = useState('gpt-realtime-mini-2025-12-15');
   const [selectedVoice, setSelectedVoice] = useState('alloy');
   const [selectedChatModel, setSelectedChatModel] = useState('google/gemini-2.5-flash');
   const [botPrompt, setBotPrompt] = useState('You are a helpful AI assistant. Be concise and friendly in your responses. Use available tools like web_search when you need current information.');
@@ -75,7 +75,7 @@ export default function Index() {
   // Auto-switch models when mode changes
   useEffect(() => {
     if (interactionMode === 'voice') {
-      setSelectedModel('gpt-4o-realtime-preview-2024-12-17');
+      setSelectedModel('gpt-realtime-mini-2025-12-15');
     } else {
       setSelectedModel(selectedChatModel);
     }

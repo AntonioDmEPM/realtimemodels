@@ -16,10 +16,8 @@ import { RealtimeModelSettings as RealtimeSettingsComponent } from '@/components
 import { ChatModelSettings as ChatSettingsComponent } from '@/components/ChatModelSettings';
 
 const REALTIME_MODELS = [
+  { id: 'gpt-realtime-mini-2025-12-15', name: 'GPT Realtime Mini (2025-12-15)' },
   { id: 'gpt-4o-realtime-preview-2024-12-17', name: 'GPT-4o Realtime (2024-12-17)' },
-  { id: 'gpt-4o-mini-realtime-preview-2024-12-17', name: 'GPT-4o Mini Realtime (2024-12-17)' },
-  { id: 'gpt-realtime', name: 'GPT Realtime' },
-  { id: 'gpt-realtime-mini', name: 'GPT Realtime Mini' },
 ];
 
 const CHAT_MODELS = [
@@ -77,7 +75,7 @@ export function VoiceModelView({
 
   useEffect(() => {
     const modelKey = selectedModel as keyof typeof MODEL_PRICING;
-    const defaultPricing = MODEL_PRICING[modelKey] || MODEL_PRICING["gpt-4o-realtime-preview-2024-12-17"];
+    const defaultPricing = MODEL_PRICING[modelKey] || MODEL_PRICING["gpt-realtime-mini-2025-12-15"];
     
     const saved = localStorage.getItem(`pricing_config_${selectedModel}`);
     if (saved) {
@@ -136,7 +134,7 @@ export function VoiceModelView({
     onModeChange(newMode);
     localStorage.setItem('interaction_mode', newMode);
     
-    const defaultModel = newMode === 'voice' ? 'gpt-4o-realtime-preview-2024-12-17' : 'openai/gpt-5-mini';
+    const defaultModel = newMode === 'voice' ? 'gpt-realtime-mini-2025-12-15' : 'openai/gpt-5-mini';
     handleModelChange(defaultModel);
   };
 
@@ -153,7 +151,7 @@ export function VoiceModelView({
 
   const handleResetPricing = () => {
     const modelKey = selectedModel as keyof typeof MODEL_PRICING;
-    const defaultPricing = MODEL_PRICING[modelKey] || MODEL_PRICING["gpt-4o-realtime-preview-2024-12-17"];
+    const defaultPricing = MODEL_PRICING[modelKey] || MODEL_PRICING["gpt-realtime-mini-2025-12-15"];
     setLocalPricing(defaultPricing);
     localStorage.removeItem(`pricing_config_${selectedModel}`);
     onPricingChange(defaultPricing);

@@ -17,10 +17,8 @@ interface VoiceControlsProps {
 }
 
 const REALTIME_MODELS = [
+  { id: 'gpt-realtime-mini-2025-12-15', name: 'GPT Realtime Mini (2025-12-15)' },
   { id: 'gpt-4o-realtime-preview-2024-12-17', name: 'GPT-4o Realtime (2024-12-17)' },
-  { id: 'gpt-4o-mini-realtime-preview-2024-12-17', name: 'GPT-4o Mini Realtime (2024-12-17)' },
-  { id: 'gpt-realtime', name: 'GPT Realtime' },
-  { id: 'gpt-realtime-mini', name: 'GPT Realtime Mini' },
 ];
 
 const CHAT_MODELS = [
@@ -49,7 +47,7 @@ export default function VoiceControls({
   mode,
 }: VoiceControlsProps) {
   const [voice, setVoice] = useState('sage');
-  const [model, setModel] = useState('gpt-realtime');
+  const [model, setModel] = useState('gpt-realtime-mini-2025-12-15');
 
   useEffect(() => {
     const savedModel = localStorage.getItem('selected_model');
@@ -65,7 +63,7 @@ export default function VoiceControls({
       onModelChange?.(savedModel);
     } else {
       // Set default model based on mode
-      const defaultModel = mode === 'voice' ? 'gpt-realtime' : 'gpt-5-mini';
+      const defaultModel = mode === 'voice' ? 'gpt-realtime-mini-2025-12-15' : 'gpt-5-mini';
       setModel(defaultModel);
       onModelChange?.(defaultModel);
     }
@@ -82,7 +80,7 @@ export default function VoiceControls({
     onModeChange?.(newMode);
     
     // Set appropriate default model for the mode
-    const defaultModel = newMode === 'voice' ? 'gpt-realtime' : 'gpt-5-mini';
+    const defaultModel = newMode === 'voice' ? 'gpt-realtime-mini-2025-12-15' : 'gpt-5-mini';
     handleModelChange(defaultModel);
   };
 
