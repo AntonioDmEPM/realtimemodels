@@ -168,7 +168,17 @@ export async function createRealtimeSession(
   pc.addTrack(inStream.getTracks()[0]);
 
   const dc = pc.createDataChannel('oai-events');
-  
+
+  dc.addEventListener('open', () => {
+    console.log('✅ DataChannel open:', dc.label);
+  });
+  dc.addEventListener('close', () => {
+    console.log('🛑 DataChannel closed:', dc.label);
+  });
+  dc.addEventListener('error', (err) => {
+    console.error('❌ DataChannel error:', err);
+  });
+
   let sessionCreated = false;
   
   dc.addEventListener('message', (e) => {
@@ -236,16 +246,19 @@ export async function createRealtimeSession(
         const baseModalities: Array<'text' | 'audio'> =
           realtimeSettings?.modalities ?? (textOnly ? ['text'] : ['audio', 'text']);
 
-        // In voice mode, always include audio so we don't accidentally disable output audio
+        // In voice mode, ALWAYS include both audio + text so we get spoken output AND transcripts.
         const normalizedModalities = textOnly
           ? baseModalities
-          : (Array.from(new Set([...baseModalities, 'audio'])) as Array<'text' | 'audio'>);
+          : (Array.from(new Set([...baseModalities, 'audio', 'text'])) as Array<'text' | 'audio'>);
 
         const normalizeTurnDetection = (td: any) => {
           if (textOnly) return null;
           if (!td) return defaultTurnDetection;
           if (typeof td !== 'object') return defaultTurnDetection;
-          if (td.type === 'none') return null;
+
+          // Some older saved settings may use type:'none' — we don't support a manual (non-VAD) audio UX yet,
+          // so force server VAD to ensure the assistant actually responds.
+          if (td.type === 'none') return defaultTurnDetection;
 
           // Accept both camelCase (UI) and snake_case (API)
           const prefixPaddingMs = td.prefix_padding_ms ?? td.prefixPaddingMs ?? 300;
@@ -261,8 +274,6 @@ export async function createRealtimeSession(
           };
         };
 
-        // If VAD is disabled in UI, we still need a working voice flow.
-        // Until we have a dedicated "manual push-to-talk" UX, force server VAD in voice mode.
         const normalizedTurnDetection = normalizeTurnDetection(realtimeSettings?.turnDetection);
 
         const sessionUpdate: any = {
