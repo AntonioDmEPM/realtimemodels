@@ -16,6 +16,7 @@ interface ConversationMessagesProps {
 
 interface Message {
   id: string;
+  item_id?: string; // OpenAI item ID for correlation
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
@@ -60,28 +61,19 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
 
     const pendingKnowledge: any[] = []; // Store knowledge results until next assistant message
 
-    // Robust sentiment attachment:
-    // - sentiment can arrive before/after transcription
-    // - timestamps are often unreliable (local receipt time)
-    // So we attach sentiment to the most recent user message without sentiment,
-    // otherwise we keep it as pending for the next user message.
-    let pendingSentiment: Message['sentiment'] | undefined;
+    // Map of item_id -> sentiment for precise correlation
+    const sentimentByItemId = new Map<string, Message['sentiment']>();
 
-    const applySentimentToMostRecentUserMessage = (sentiment: Message['sentiment']) => {
-      for (let i = messages.length - 1; i >= 0; i--) {
-        if (messages[i].role === 'user' && !messages[i].sentiment) {
-          messages[i].sentiment = sentiment;
-          return true;
-        }
+    // First pass: collect all sentiment events by item_id
+    events.forEach((event) => {
+      if (event.data.type === 'sentiment.detected' && event.data.item_id) {
+        sentimentByItemId.set(event.data.item_id, {
+          sentiment: event.data.sentiment,
+          confidence: event.data.confidence,
+          reason: event.data.reason,
+        });
       }
-      return false;
-    };
-
-    const consumePendingSentiment = (): Message['sentiment'] | undefined => {
-      const s = pendingSentiment;
-      pendingSentiment = undefined;
-      return s;
-    };
+    });
 
     const eventsChrono = [...events].slice().sort((a, b) => {
       const timeA = new Date(a.timestamp).getTime();
@@ -90,22 +82,13 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
     });
 
     console.log('Extracting messages from events:', eventsChrono.length);
+    console.log('Sentiment map:', Object.fromEntries(sentimentByItemId));
 
     eventsChrono.forEach((event) => {
       const eventType = event.data.type;
 
-      // Capture sentiment events (for per-message coloring)
+      // Skip sentiment events (already processed in first pass)
       if (eventType === 'sentiment.detected') {
-        const sentiment: Message['sentiment'] = {
-          sentiment: event.data.sentiment,
-          confidence: event.data.confidence,
-          reason: event.data.reason,
-        };
-
-        // Prefer attaching to last user message; otherwise store for next user message
-        if (!applySentimentToMostRecentUserMessage(sentiment)) {
-          pendingSentiment = sentiment;
-        }
         return;
       }
 
@@ -115,17 +98,21 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
         return;
       }
 
-      // Capture user input transcriptions
+      // Capture user input transcriptions with item_id correlation
       if (
         eventType === 'conversation.item.input_audio_transcription.completed' ||
         eventType === 'conversation.item.input_audio_transcription.done'
       ) {
+        const itemId = event.data.item_id;
+        const sentiment = itemId ? sentimentByItemId.get(itemId) : undefined;
+        
         messages.push({
           id: `msg-${messageIdCounter++}`,
+          item_id: itemId,
           role: 'user',
           content: event.data.transcript || '[Audio input]',
           timestamp: event.timestamp,
-          sentiment: consumePendingSentiment(),
+          sentiment,
         });
         return;
       }
@@ -200,9 +187,10 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
         return;
       }
 
-      // Capture user text input (chat mode)
+      // Capture user text input (chat mode) - use item_id for sentiment correlation
       if (eventType === 'conversation.item.created' && event.data.item?.role === 'user') {
         const item = event.data.item;
+        const itemId = item.id;
 
         // For audio items, always wait for the separate transcription event
         const hasAudioContent = item.content?.some((c: any) => c.type === 'input_audio');
@@ -211,20 +199,24 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
         if (item.content) {
           for (const content of item.content) {
             if (content.type === 'input_text' && content.text) {
+              const sentiment = itemId ? sentimentByItemId.get(itemId) : undefined;
               messages.push({
                 id: `msg-${messageIdCounter++}`,
+                item_id: itemId,
                 role: 'user',
                 content: content.text,
                 timestamp: event.timestamp,
-                sentiment: consumePendingSentiment(),
+                sentiment,
               });
             } else if (content.type === 'input_audio' && content.transcript) {
+              const sentiment = itemId ? sentimentByItemId.get(itemId) : undefined;
               messages.push({
                 id: `msg-${messageIdCounter++}`,
+                item_id: itemId,
                 role: 'user',
                 content: content.transcript,
                 timestamp: event.timestamp,
-                sentiment: consumePendingSentiment(),
+                sentiment,
               });
             }
           }

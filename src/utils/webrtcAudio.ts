@@ -166,32 +166,6 @@ export async function createRealtimeSession(
           });
         }
         
-        // Always add sentiment detection
-        sessionUpdate.session.tools.push({
-          type: 'function',
-          name: 'detect_sentiment',
-          description: 'CRITICAL: Call this function IMMEDIATELY after EVERY user message to analyze their emotional tone. This is required for tone adaptation. Analyze whether the user sounds positive, neutral, negative, or mixed.',
-          parameters: {
-            type: 'object',
-            properties: {
-              sentiment: {
-                type: 'string',
-                enum: ['positive', 'neutral', 'negative', 'mixed'],
-                description: 'The emotional sentiment in the user\'s last message'
-              },
-              confidence: {
-                type: 'number',
-                description: 'Confidence level from 0 to 1'
-              },
-              reason: {
-                type: 'string',
-                description: 'Brief explanation (e.g., "User expressing frustration", "Enthusiastic tone", "Casual conversation")'
-              }
-            },
-            required: ['sentiment', 'confidence', 'reason']
-          }
-        });
-        
         // Add knowledge base search tool if available
         if (knowledgeBaseId) {
           sessionUpdate.session.tools.push({
@@ -386,37 +360,47 @@ export async function createRealtimeSession(
                 dc.send(JSON.stringify({ type: 'response.create' }));
               }
             });
-        } else if (functionName === 'detect_sentiment') {
-          console.log('AI detecting sentiment:', args);
+        }
+      }
 
-          // Store sentiment event and pass it back to the parent
-          onMessage({
-            type: 'sentiment.detected',
-            call_id: callId,
-            sentiment: args.sentiment,
-            confidence: args.confidence,
-            reason: args.reason,
-            timestamp: new Date().toISOString()
-          });
-
-          // Acknowledge the sentiment detection
-          const functionOutput = {
-            type: 'conversation.item.create',
-            item: {
-              type: 'function_call_output',
-              call_id: callId,
-              output: JSON.stringify({
-                status: 'acknowledged',
-                message: 'Sentiment recorded and tone will be adapted accordingly'
-              })
-            }
-          };
-
-          dc.send(JSON.stringify(functionOutput));
-          // IMPORTANT: do NOT force response.create in voice/server_vad mode (avoids duplicate outputs)
-          if (shouldManuallyCreateResponse) {
-            dc.send(JSON.stringify({ type: 'response.create' }));
-          }
+      // STRUCTURAL SENTIMENT ANALYSIS: Trigger on transcription completion
+      if (eventData.type === 'conversation.item.input_audio_transcription.completed' ||
+          eventData.type === 'conversation.item.input_audio_transcription.done') {
+        const transcript = eventData.transcript;
+        const itemId = eventData.item_id;
+        
+        if (transcript && transcript.trim().length > 0) {
+          console.log('🎯 Triggering structural sentiment analysis for item:', itemId);
+          
+          // Call client-side sentiment analysis edge function
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-sentiment`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseToken}`
+            },
+            body: JSON.stringify({
+              text: transcript,
+              item_id: itemId
+            })
+          })
+            .then(res => res.json())
+            .then(data => {
+              console.log('✅ Sentiment analysis result:', data);
+              
+              // Emit sentiment event with item_id for correlation
+              onMessage({
+                type: 'sentiment.detected',
+                item_id: itemId,
+                sentiment: data.sentiment,
+                confidence: data.confidence,
+                reason: data.reason,
+                timestamp: new Date().toISOString()
+              });
+            })
+            .catch(err => {
+              console.error('Sentiment analysis failed:', err);
+            });
         }
       }
 

@@ -15,5 +15,8 @@ verify_jwt = true
 [functions.web-search]
 verify_jwt = true
 
+[functions.analyze-sentiment]
+verify_jwt = true
+
 [functions.suggest-prompt]
 verify_jwt = true
