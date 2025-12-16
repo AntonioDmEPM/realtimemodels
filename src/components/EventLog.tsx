@@ -33,7 +33,7 @@ export default function EventLog({ events }: EventLogProps) {
           <Label htmlFor="show-raw">Show all events</Label>
         </div>
       </div>
-      <ScrollArea className="h-[400px] w-full rounded-lg border">
+      <ScrollArea className="h-[600px] w-full rounded-lg border">
         <div className="p-4 space-y-3">
           {filteredEvents.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">

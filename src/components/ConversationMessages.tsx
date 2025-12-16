@@ -1,10 +1,10 @@
+import { useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { User, Bot } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
-
 interface EventEntry {
   timestamp: string;
   data: any;
@@ -32,6 +32,8 @@ interface Message {
 }
 
 export default function ConversationMessages({ events }: ConversationMessagesProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   const getSentimentBubbleClasses = (sentiment?: Message['sentiment']) => {
     if (!sentiment) {
       return 'bg-primary text-primary-foreground rounded-tr-sm';
@@ -230,6 +232,13 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
 
   const messages = extractMessages();
 
+  // Autoscroll to bottom when new messages arrive
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages.length]);
+
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString('en-US', { 
@@ -245,7 +254,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
       <div className="border-b p-4">
         <h3 className="font-semibold">Conversation</h3>
       </div>
-      <div className="flex-1 p-4">
+      <div ref={scrollRef} className="flex-1 p-4 overflow-y-auto">
         {messages.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">
             No conversation yet. Start a session to see messages here.
