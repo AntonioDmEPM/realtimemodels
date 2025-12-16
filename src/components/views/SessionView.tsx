@@ -71,8 +71,8 @@ export function SessionView({
 }: SessionViewProps) {
   return (
     <div className="h-full flex flex-col">
-      {/* Session Controls */}
-      <div className="border-b p-4">
+      {/* Session Controls - Compact header */}
+      <div className="border-b p-3">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             {mode === 'voice' && (
@@ -80,16 +80,17 @@ export function SessionView({
                 <Button
                   onClick={isConnected ? onStop : onStart}
                   variant={isConnected ? 'destructive' : 'default'}
+                  size="sm"
                 >
-                  {isConnected ? 'Stop Session' : 'Start Session'}
+                  {isConnected ? 'Stop' : 'Start'}
                 </Button>
-                <Button onClick={onResetAll} variant="outline" disabled={isConnected}>
-                  Reset All
+                <Button onClick={onResetAll} variant="outline" size="sm" disabled={isConnected}>
+                  Reset
                 </Button>
               </>
             )}
             {mode === 'chat' && (
-              <Button onClick={onResetAll} variant="outline">
+              <Button onClick={onResetAll} variant="outline" size="sm">
                 Clear Chat
               </Button>
             )}
@@ -97,22 +98,14 @@ export function SessionView({
           
           <div className="flex items-center gap-4">
             {mode === 'voice' && (
-              <div className="flex items-center gap-4">
-                <VoiceVisualizer
-                  inputStream={audioStream}
-                  isConnected={isConnected}
-                  isSpeaking={speakingState}
-                  size={60}
-                />
-                <ConversationTimer
-                  startTime={sessionStartTime}
-                  isActive={isConnected}
-                />
-              </div>
+              <ConversationTimer
+                startTime={sessionStartTime}
+                isActive={isConnected}
+              />
             )}
             {mode === 'chat' && (
               <span className="text-sm text-muted-foreground">
-                Chat Mode - No session required
+                Chat Mode
               </span>
             )}
           </div>
@@ -120,15 +113,27 @@ export function SessionView({
       </div>
 
       <ResizablePanelGroup direction="horizontal" className="flex-1">
-        {/* LEFT SIDE - Conversation & Sentiment */}
+        {/* LEFT SIDE - Visualizer & Conversation */}
         <ResizablePanel defaultSize={55} minSize={30}>
           <div className="h-full flex flex-col overflow-hidden">
-            {/* Sentiment Indicator - Fixed at top */}
-            <div className="border-b p-4">
+            {/* Voice Visualizer - Central and prominent */}
+            {mode === 'voice' && (
+              <div className="flex-shrink-0 flex flex-col items-center justify-center py-6 border-b bg-gradient-to-b from-background to-muted/20">
+                <VoiceVisualizer
+                  inputStream={audioStream}
+                  isConnected={isConnected}
+                  isSpeaking={speakingState}
+                  size={180}
+                />
+              </div>
+            )}
+            
+            {/* Sentiment Indicator */}
+            <div className="border-b p-3">
               <SentimentIndicator sentiment={currentSentiment} />
             </div>
             
-            {/* Conversation - Full scrollable area */}
+            {/* Conversation - Scrollable area */}
             <ScrollArea className="flex-1">
               <ConversationMessages events={events} />
             </ScrollArea>
@@ -163,7 +168,7 @@ export function SessionView({
 
         <ResizableHandle withHandle />
 
-        {/* RIGHT SIDE - Analytics (Fixed with independent scrolling) */}
+        {/* RIGHT SIDE - Analytics */}
         <ResizablePanel defaultSize={45} minSize={25}>
           <div className="h-full flex flex-col overflow-hidden">
             <ScrollArea className="flex-1 p-4">
