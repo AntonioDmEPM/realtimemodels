@@ -35,16 +35,16 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
     if (!sentiment) {
       return 'bg-primary text-primary-foreground rounded-tr-sm';
     }
-    
+
     switch (sentiment.sentiment) {
       case 'positive':
-        return 'bg-green-600 text-white rounded-tr-sm';
+        return 'bg-chart-2 text-sentiment-foreground rounded-tr-sm';
       case 'negative':
-        return 'bg-red-600 text-white rounded-tr-sm';
+        return 'bg-chart-4 text-sentiment-foreground rounded-tr-sm';
       case 'mixed':
-        return 'bg-yellow-600 text-white rounded-tr-sm';
+        return 'bg-chart-5 text-sentiment-foreground rounded-tr-sm';
       case 'neutral':
-        return 'bg-blue-600 text-white rounded-tr-sm';
+        return 'bg-chart-1 text-sentiment-foreground rounded-tr-sm';
       default:
         return 'bg-primary text-primary-foreground rounded-tr-sm';
     }
@@ -54,81 +54,80 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
   const extractMessages = (): Message[] => {
     const messages: Message[] = [];
     let messageIdCounter = 0;
+
     const textDeltaMap = new Map<string, string>(); // response_id -> accumulated text
     const processedResponseIds = new Set<string>(); // Track processed response IDs to avoid duplicates
-    const knowledgeResultsMap = new Map<string, any[]>(); // call_id -> knowledge results
+
     const pendingKnowledge: any[] = []; // Store knowledge results until next assistant message
-    const sentimentMap = new Map<string, any>(); // timestamp -> sentiment data for matching
 
-    console.log('Extracting messages from events:', events.length);
+    // Robust sentiment attachment:
+    // - sentiment can arrive before/after transcription
+    // - timestamps are often unreliable (local receipt time)
+    // So we attach sentiment to the most recent user message without sentiment,
+    // otherwise we keep it as pending for the next user message.
+    let pendingSentiment: Message['sentiment'] | undefined;
 
-    // First pass: collect all sentiment events by timestamp
-    events.forEach((event) => {
-      if (event.data.type === 'sentiment.detected') {
-        console.log('Found sentiment detection:', event.data, 'at outer timestamp:', event.timestamp);
-        // Use event.timestamp (outer) for consistent matching with other events
-        sentimentMap.set(event.timestamp, {
-          sentiment: event.data.sentiment,
-          confidence: event.data.confidence,
-          reason: event.data.reason
-        });
+    const applySentimentToMostRecentUserMessage = (sentiment: Message['sentiment']) => {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'user' && !messages[i].sentiment) {
+          messages[i].sentiment = sentiment;
+          return true;
+        }
       }
+      return false;
+    };
+
+    const consumePendingSentiment = (): Message['sentiment'] | undefined => {
+      const s = pendingSentiment;
+      pendingSentiment = undefined;
+      return s;
+    };
+
+    const eventsChrono = [...events].slice().sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      return timeA - timeB;
     });
 
-    console.log('Collected sentiments:', sentimentMap.size);
+    console.log('Extracting messages from events:', eventsChrono.length);
 
-    // Second pass: process messages and match sentiments
-    events.forEach((event, index) => {
+    eventsChrono.forEach((event) => {
       const eventType = event.data.type;
-      
-      // Log first few events for debugging
-      if (index < 5) {
-        console.log('Event type:', eventType, 'Data:', event.data);
+
+      // Capture sentiment events (for per-message coloring)
+      if (eventType === 'sentiment.detected') {
+        const sentiment: Message['sentiment'] = {
+          sentiment: event.data.sentiment,
+          confidence: event.data.confidence,
+          reason: event.data.reason,
+        };
+
+        // Prefer attaching to last user message; otherwise store for next user message
+        if (!applySentimentToMostRecentUserMessage(sentiment)) {
+          pendingSentiment = sentiment;
+        }
+        return;
       }
 
       // Capture knowledge base search results
       if (eventType === 'knowledge_base.search_results') {
-        console.log('Found knowledge results:', event.data.results?.length || 0);
         pendingKnowledge.push(...(event.data.results || []));
+        return;
       }
 
-      // Capture user input transcriptions from completed events (try both event types)
-      if (eventType === 'conversation.item.input_audio_transcription.completed' || 
-          eventType === 'conversation.item.input_audio_transcription.done') {
-        console.log('Found user transcription:', event.data.transcript, 'at timestamp:', event.timestamp);
-        
-        // Find the closest sentiment by timestamp (within 1 second in either direction)
-        // Sentiment detection happens AFTER the user message, so we need to look both ways
-        let closestSentiment = null;
-        let closestTimeDiff = Infinity;
-        let closestTimestampKey: string | null = null;
-        const messageTime = new Date(event.timestamp).getTime();
-        
-        for (const [sentimentTimestamp, sentimentData] of sentimentMap.entries()) {
-          const sentimentTime = new Date(sentimentTimestamp).getTime();
-          const timeDiff = Math.abs(messageTime - sentimentTime);
-          
-          // Sentiment should be within 5 seconds of the message (sentiment detection can take time)
-          if (timeDiff <= 5000 && timeDiff < closestTimeDiff) {
-            closestSentiment = sentimentData;
-            closestTimeDiff = timeDiff;
-            closestTimestampKey = sentimentTimestamp;
-            console.log('Found potential sentiment match:', sentimentData, 'time diff:', timeDiff, 'ms');
-          }
-        }
-        
-        if (closestTimestampKey) {
-          console.log('Matched sentiment:', closestSentiment, 'to message at time diff:', closestTimeDiff, 'ms');
-          sentimentMap.delete(closestTimestampKey); // Remove to avoid reusing
-        }
-        
+      // Capture user input transcriptions
+      if (
+        eventType === 'conversation.item.input_audio_transcription.completed' ||
+        eventType === 'conversation.item.input_audio_transcription.done'
+      ) {
         messages.push({
           id: `msg-${messageIdCounter++}`,
           role: 'user',
           content: event.data.transcript || '[Audio input]',
           timestamp: event.timestamp,
-          sentiment: closestSentiment,
+          sentiment: consumePendingSentiment(),
         });
+        return;
       }
 
       // Accumulate text deltas for text-mode responses
@@ -137,14 +136,14 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
         const delta = event.data.delta;
         const current = textDeltaMap.get(responseId) || '';
         textDeltaMap.set(responseId, current + delta);
+        return;
       }
 
       // Finalize text response when done
       if (eventType === 'response.text.done') {
         const responseId = event.data.response_id;
         const text = event.data.text || textDeltaMap.get(responseId) || '';
-        if (text && !processedResponseIds.has(responseId)) {
-          console.log('Found complete text response:', text);
+        if (text && responseId && !processedResponseIds.has(responseId)) {
           const knowledge = pendingKnowledge.length > 0 ? [...pendingKnowledge] : undefined;
           messages.push({
             id: `msg-${messageIdCounter++}`,
@@ -155,38 +154,28 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
           });
           processedResponseIds.add(responseId);
           textDeltaMap.delete(responseId);
-          pendingKnowledge.length = 0; // Clear pending knowledge after use
+          pendingKnowledge.length = 0;
         }
-      }
-
-      // Skip response.audio_transcript.done - we already get transcripts from response.done
-      // This prevents duplicate messages from being added
-      if (eventType === 'response.audio_transcript.done') {
-        // Intentionally skip - response.done already contains the transcript
         return;
       }
 
-      // Capture assistant messages from response.done events (audio mode)
+      // Skip response.audio_transcript.done - we already get transcripts from response.done
+      if (eventType === 'response.audio_transcript.done') {
+        return;
+      }
+
+      // Capture assistant messages from response.done events (audio + chat mode)
       if (eventType === 'response.done' && event.data.response?.output) {
         const responseId = event.data.response_id;
-        // Skip if we already processed this response from other events (only check if responseId exists)
-        if (responseId && processedResponseIds.has(responseId)) {
-          return;
-        }
-        
-        // Mark as processed immediately to prevent audio_transcript.done from duplicating
+        if (responseId && processedResponseIds.has(responseId)) return;
         if (responseId) processedResponseIds.add(responseId);
-        
-        const output = event.data.response.output;
-        console.log('Found response.done with output:', output.length);
+
         const knowledge = pendingKnowledge.length > 0 ? [...pendingKnowledge] : undefined;
-        
-        // Extract transcript from the output array
-        for (const item of output) {
+
+        for (const item of event.data.response.output) {
           if (item.role === 'assistant' && item.content) {
             for (const content of item.content) {
               if (content.type === 'audio' && content.transcript) {
-                console.log('Found assistant transcript:', content.transcript);
                 messages.push({
                   id: `msg-${messageIdCounter++}`,
                   role: 'assistant',
@@ -196,8 +185,6 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
                 });
                 pendingKnowledge.length = 0;
               } else if (content.type === 'text' && content.text) {
-                // Also handle text type from output
-                console.log('Found assistant text:', content.text);
                 messages.push({
                   id: `msg-${messageIdCounter++}`,
                   role: 'assistant',
@@ -210,80 +197,34 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
             }
           }
         }
+        return;
       }
 
-      // Also capture user text input from conversation.item.created events
+      // Capture user text input (chat mode)
       if (eventType === 'conversation.item.created' && event.data.item?.role === 'user') {
         const item = event.data.item;
-        console.log('📨 conversation.item.created for user:', JSON.stringify(item, null, 2));
-        
+
         // For audio items, always wait for the separate transcription event
-        // Don't try to extract transcript from here even if present
         const hasAudioContent = item.content?.some((c: any) => c.type === 'input_audio');
-        if (hasAudioContent) {
-          console.log('⏭️ Audio item detected - waiting for dedicated transcription event');
-          return;
-        }
-        
+        if (hasAudioContent) return;
+
         if (item.content) {
           for (const content of item.content) {
             if (content.type === 'input_text' && content.text) {
-              // Find the closest sentiment by timestamp (within 1 second in either direction)
-              let closestSentiment = null;
-              let closestTimeDiff = Infinity;
-              let closestTimestampKey: string | null = null;
-              const messageTime = new Date(event.timestamp).getTime();
-              
-              for (const [sentimentTimestamp, sentimentData] of sentimentMap.entries()) {
-                const sentimentTime = new Date(sentimentTimestamp).getTime();
-                const timeDiff = Math.abs(messageTime - sentimentTime);
-                
-                if (timeDiff <= 5000 && timeDiff < closestTimeDiff) {
-                  closestSentiment = sentimentData;
-                  closestTimeDiff = timeDiff;
-                  closestTimestampKey = sentimentTimestamp;
-                }
-              }
-              
-              if (closestTimestampKey) {
-                sentimentMap.delete(closestTimestampKey);
-              }
-              
               messages.push({
                 id: `msg-${messageIdCounter++}`,
                 role: 'user',
                 content: content.text,
                 timestamp: event.timestamp,
-                sentiment: closestSentiment,
+                sentiment: consumePendingSentiment(),
               });
             } else if (content.type === 'input_audio' && content.transcript) {
-              // Find the closest sentiment by timestamp (within 1 second in either direction)
-              let closestSentiment = null;
-              let closestTimeDiff = Infinity;
-              let closestTimestampKey: string | null = null;
-              const messageTime = new Date(event.timestamp).getTime();
-              
-              for (const [sentimentTimestamp, sentimentData] of sentimentMap.entries()) {
-                const sentimentTime = new Date(sentimentTimestamp).getTime();
-                const timeDiff = Math.abs(messageTime - sentimentTime);
-                
-                if (timeDiff <= 5000 && timeDiff < closestTimeDiff) {
-                  closestSentiment = sentimentData;
-                  closestTimeDiff = timeDiff;
-                  closestTimestampKey = sentimentTimestamp;
-                }
-              }
-              
-              if (closestTimestampKey) {
-                sentimentMap.delete(closestTimestampKey);
-              }
-              
               messages.push({
                 id: `msg-${messageIdCounter++}`,
                 role: 'user',
                 content: content.transcript,
                 timestamp: event.timestamp,
-                sentiment: closestSentiment,
+                sentiment: consumePendingSentiment(),
               });
             }
           }
@@ -292,13 +233,7 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
     });
 
     console.log('Extracted messages:', messages.length);
-    
-    // Sort by timestamp (precise to milliseconds) to ensure correct ordering
-    return messages.sort((a, b) => {
-      const timeA = new Date(a.timestamp).getTime();
-      const timeB = new Date(b.timestamp).getTime();
-      return timeA - timeB; // Oldest first
-    });
+    return messages;
   };
 
   const messages = extractMessages();

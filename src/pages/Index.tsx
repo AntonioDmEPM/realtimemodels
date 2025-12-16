@@ -716,7 +716,18 @@ export default function Index() {
             // Check if AI wants to make another tool call
             if (responseData.requires_tool && responseData.tool_name === 'detect_sentiment') {
               console.log('AI requesting sentiment detection after search');
-              
+
+              // Persist sentiment for UI coloring + indicator
+              if (responseData.tool_arguments) {
+                const sentimentData = {
+                  sentiment: responseData.tool_arguments.sentiment,
+                  confidence: responseData.tool_arguments.confidence,
+                  reason: responseData.tool_arguments.reason,
+                };
+                setCurrentSentiment(sentimentData);
+                addEvent({ type: 'sentiment.detected', ...sentimentData });
+              }
+
               const sentimentToolCallId = responseData.choices[0]?.message?.tool_calls?.[0]?.id;
               if (!sentimentToolCallId) {
                 console.error('No sentiment tool_call_id found');
