@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Send, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import AudioIndicator from '@/components/AudioIndicator';
+import VoiceVisualizer from '@/components/VoiceVisualizer';
 import ConversationTimer from '@/components/ConversationTimer';
 import SentimentIndicator from '@/components/SentimentIndicator';
 import ConversationMessages from '@/components/ConversationMessages';
@@ -37,6 +37,8 @@ interface SessionViewProps {
   totalInputTokens: number;
   totalOutputTokens: number;
   events: EventEntry[];
+  audioStream?: MediaStream | null;
+  speakingState?: 'user' | 'assistant' | null;
   onStart: () => void;
   onStop: () => void;
   onResetAll: () => void;
@@ -59,6 +61,8 @@ export function SessionView({
   totalInputTokens,
   totalOutputTokens,
   events,
+  audioStream,
+  speakingState,
   onStart,
   onStop,
   onResetAll,
@@ -92,12 +96,19 @@ export function SessionView({
           </div>
           
           <div className="flex items-center gap-4">
-            {mode === 'voice' && <AudioIndicator isActive={isAudioActive} />}
             {mode === 'voice' && (
-              <ConversationTimer
-                startTime={sessionStartTime}
-                isActive={isConnected}
-              />
+              <div className="flex items-center gap-4">
+                <VoiceVisualizer
+                  inputStream={audioStream}
+                  isConnected={isConnected}
+                  isSpeaking={speakingState}
+                  size={60}
+                />
+                <ConversationTimer
+                  startTime={sessionStartTime}
+                  isActive={isConnected}
+                />
+              </div>
             )}
             {mode === 'chat' && (
               <span className="text-sm text-muted-foreground">
