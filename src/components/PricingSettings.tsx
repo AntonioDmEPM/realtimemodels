@@ -15,33 +15,19 @@ export interface PricingConfig {
 }
 
 export const MODEL_PRICING = {
+  "gpt-realtime-mini-2025-12-15": {
+    audioInputCost: 0.00001,
+    audioOutputCost: 0.00002,
+    cachedAudioCost: 0.0000003,
+    textInputCost: 0.0000006,
+    textOutputCost: 0.0000024,
+  },
   "gpt-4o-realtime-preview-2024-12-17": {
     audioInputCost: 0.00004,
     audioOutputCost: 0.00008,
     cachedAudioCost: 0.0000025,
     textInputCost: 0.000005,
     textOutputCost: 0.00002,
-  },
-  "gpt-4o-mini-realtime-preview-2024-12-17": {
-    audioInputCost: 0.00001,
-    audioOutputCost: 0.00002,
-    cachedAudioCost: 0.0000003,
-    textInputCost: 0.0000006,
-    textOutputCost: 0.0000024,
-  },
-  "gpt-realtime": {
-    audioInputCost: 0.000032,
-    audioOutputCost: 0.000064,
-    cachedAudioCost: 0.0000004,
-    textInputCost: 0.000004,
-    textOutputCost: 0.000016,
-  },
-  "gpt-realtime-mini": {
-    audioInputCost: 0.00001,
-    audioOutputCost: 0.00002,
-    cachedAudioCost: 0.0000003,
-    textInputCost: 0.0000006,
-    textOutputCost: 0.0000024,
   },
 };
 
@@ -53,12 +39,12 @@ interface PricingSettingsProps {
 export default function PricingSettings({ onPricingChange, selectedModel }: PricingSettingsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [pricing, setPricing] = useState<PricingConfig>(
-    MODEL_PRICING[selectedModel as keyof typeof MODEL_PRICING] || MODEL_PRICING["gpt-4o-realtime-preview-2024-12-17"]
+    MODEL_PRICING[selectedModel as keyof typeof MODEL_PRICING] || MODEL_PRICING["gpt-realtime-mini-2025-12-15"]
   );
 
   useEffect(() => {
     const modelKey = selectedModel as keyof typeof MODEL_PRICING;
-    const defaultPricing = MODEL_PRICING[modelKey] || MODEL_PRICING["gpt-4o-realtime-preview-2024-12-17"];
+    const defaultPricing = MODEL_PRICING[modelKey] || MODEL_PRICING["gpt-realtime-mini-2025-12-15"];
     
     const saved = localStorage.getItem(`pricing_config_${selectedModel}`);
     if (saved) {
@@ -91,7 +77,7 @@ export default function PricingSettings({ onPricingChange, selectedModel }: Pric
 
   const handleReset = () => {
     const modelKey = selectedModel as keyof typeof MODEL_PRICING;
-    const defaultPricing = MODEL_PRICING[modelKey] || MODEL_PRICING["gpt-4o-realtime-preview-2024-12-17"];
+    const defaultPricing = MODEL_PRICING[modelKey] || MODEL_PRICING["gpt-realtime-mini-2025-12-15"];
     setPricing(defaultPricing);
     localStorage.removeItem(`pricing_config_${selectedModel}`);
     onPricingChange(defaultPricing);
