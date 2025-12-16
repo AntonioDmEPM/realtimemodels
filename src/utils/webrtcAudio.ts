@@ -450,8 +450,30 @@ export async function createRealtimeSession(
     }
   });
 
+  const waitForIceGatheringComplete = (timeoutMs = 3000) =>
+    new Promise<void>((resolve) => {
+      if (pc.iceGatheringState === 'complete') return resolve();
+
+      const onStateChange = () => {
+        if (pc.iceGatheringState === 'complete') {
+          pc.removeEventListener('icegatheringstatechange', onStateChange);
+          clearTimeout(timeout);
+          resolve();
+        }
+      };
+
+      const timeout = window.setTimeout(() => {
+        pc.removeEventListener('icegatheringstatechange', onStateChange);
+        console.warn('⚠️ ICE gathering timed out; continuing with current SDP');
+        resolve();
+      }, timeoutMs);
+
+      pc.addEventListener('icegatheringstatechange', onStateChange);
+    });
+
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
+  await waitForIceGatheringComplete();
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -460,7 +482,7 @@ export async function createRealtimeSession(
 
   const opts = {
     method: 'POST',
-    body: offer.sdp,
+    body: pc.localDescription?.sdp ?? offer.sdp,
     headers,
   };
 
