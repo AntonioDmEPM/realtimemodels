@@ -82,20 +82,36 @@ export async function createRealtimeSession(
         trackId: e.track?.id,
       });
 
+      if (e.track?.kind !== 'audio') return;
+
       // Reuse audio element or create new one
       if (!audioElement) {
         audioElement = new Audio();
         audioElement.autoplay = true;
         audioElement.muted = false;
         audioElement.volume = 1;
+
         // iOS/Safari friendliness
         (audioElement as any).playsInline = true;
         audioElement.setAttribute('playsinline', 'true');
-        audioElement.style.display = 'none';
-        document.body.appendChild(audioElement);
+
+        // Keep it out of the layout but still "playable" across browsers
+        audioElement.style.position = 'fixed';
+        audioElement.style.left = '-9999px';
+        audioElement.style.top = '0';
+        audioElement.style.width = '1px';
+        audioElement.style.height = '1px';
+        audioElement.style.opacity = '0';
+        audioElement.style.pointerEvents = 'none';
       }
 
-      audioElement.srcObject = e.streams[0];
+      // Some browsers may not populate `e.streams`; fall back to a stream from the track.
+      const stream = e.streams?.[0] ?? new MediaStream([e.track]);
+      audioElement.srcObject = stream;
+
+      if (document.body && !audioElement.isConnected) {
+        document.body.appendChild(audioElement);
+      }
 
       // Handle play with proper error catching
       const playPromise = audioElement.play();
