@@ -73,19 +73,30 @@ export async function createRealtimeSession(
 
   // Only play audio output in voice mode
   let audioElement: HTMLAudioElement | null = null;
-  
+
   if (!textOnly) {
     pc.ontrack = (e) => {
-      console.log('🔊 Audio track received from OpenAI');
-      
+      console.log('🔊 Audio track received from OpenAI', {
+        streams: e.streams?.length ?? 0,
+        trackKind: e.track?.kind,
+        trackId: e.track?.id,
+      });
+
       // Reuse audio element or create new one
       if (!audioElement) {
         audioElement = new Audio();
         audioElement.autoplay = true;
+        audioElement.muted = false;
+        audioElement.volume = 1;
+        // iOS/Safari friendliness
+        (audioElement as any).playsInline = true;
+        audioElement.setAttribute('playsinline', 'true');
+        audioElement.style.display = 'none';
+        document.body.appendChild(audioElement);
       }
-      
+
       audioElement.srcObject = e.streams[0];
-      
+
       // Handle play with proper error catching
       const playPromise = audioElement.play();
       if (playPromise !== undefined) {
@@ -95,7 +106,6 @@ export async function createRealtimeSession(
           })
           .catch((error) => {
             console.error('❌ Audio playback failed:', error);
-            // Try to play again on user interaction
             console.log('Audio may require user interaction to play');
           });
       }
@@ -156,21 +166,44 @@ export async function createRealtimeSession(
       if (eventData.type === 'session.created' && !sessionCreated) {
         sessionCreated = true;
         console.log('✅ Session created, sending configuration update...');
-        
+
+        const defaultTurnDetection = textOnly
+          ? null
+          : {
+              type: 'server_vad',
+              // Higher threshold reduces accidental interruptions from background noise.
+              threshold: 0.65,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 1000,
+              // Ensure the assistant responds automatically after speech stops.
+              create_response: true,
+              // Prevent assistant audio from being cancelled by brief mic noise.
+              interrupt_response: false,
+            };
+
+        const resolvedTurnDetection =
+          realtimeSettings?.turnDetection !== undefined
+            ? realtimeSettings.turnDetection
+            : defaultTurnDetection;
+
+        const normalizedTurnDetection =
+          resolvedTurnDetection && typeof resolvedTurnDetection === 'object'
+            ? {
+                create_response: true,
+                interrupt_response: false,
+                ...resolvedTurnDetection,
+              }
+            : resolvedTurnDetection;
+
         const sessionUpdate: any = {
           type: 'session.update',
           session: {
             instructions: instructions,
-            voice: voice,
-            modalities: realtimeSettings?.modalities || (textOnly ? ['text'] : ['audio', 'text']),
+            modalities:
+              realtimeSettings?.modalities || (textOnly ? ['text'] : ['audio', 'text']),
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
-            turn_detection: realtimeSettings?.turnDetection || (textOnly ? null : {
-              type: 'server_vad',
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 1000
-            }),
+            turn_detection: normalizedTurnDetection,
             temperature: realtimeSettings?.temperature || 0.8,
             max_response_output_tokens: realtimeSettings?.maxOutputTokens || 'inf'
           }
