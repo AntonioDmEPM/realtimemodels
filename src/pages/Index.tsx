@@ -38,6 +38,7 @@ export default function Index() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [statusType, setStatusType] = useState<'idle' | 'success' | 'error' | 'connecting'>('idle');
   const [isAudioActive, setIsAudioActive] = useState(false);
@@ -305,6 +306,13 @@ export default function Index() {
     }
   };
   const startSession = async (voice: string, model: string) => {
+    // Prevent double-click
+    if (isConnecting || isConnected) {
+      console.log('Session already starting or connected, ignoring duplicate call');
+      return;
+    }
+    
+    setIsConnecting(true);
     try {
       setSelectedVoice(voice);
       setStatusType('connecting');
@@ -323,6 +331,7 @@ export default function Index() {
         setChatMessages([]);
         setStatusType('success');
         setStatusMessage('Chat session ready!');
+        setIsConnecting(false);
         toast({
           title: 'Connected',
           description: 'Chat session is active'
@@ -391,6 +400,7 @@ export default function Index() {
         });
         setStatusType('success');
         setStatusMessage('Voice session established successfully!');
+        setIsConnecting(false);
         toast({
           title: 'Connected',
           description: 'Voice session is active'
@@ -398,6 +408,7 @@ export default function Index() {
       }
     } catch (err: any) {
       setStatusType('error');
+      setIsConnecting(false);
       
       // Provide helpful error messages for common issues
       let errorMessage = err.message;
@@ -1227,6 +1238,7 @@ export default function Index() {
         return (
           <SessionView
             isConnected={isConnected}
+            isConnecting={isConnecting}
             isAudioActive={isAudioActive}
             sessionStartTime={sessionStartTime}
             currentSentiment={currentSentiment}

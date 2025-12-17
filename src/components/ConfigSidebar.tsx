@@ -29,6 +29,7 @@ interface ConfigSidebarProps {
   onStart: (voice: string, model: string) => Promise<void>;
   onStop: () => Promise<void>;
   isConnected: boolean;
+  isConnecting: boolean;
   statusMessage: string;
   statusType: 'idle' | 'success' | 'error' | 'connecting';
   onModelChange: (model: string) => void;
@@ -72,6 +73,7 @@ export function ConfigSidebar({
   onStart,
   onStop,
   isConnected,
+  isConnecting,
   statusMessage,
   statusType,
   onModelChange,
@@ -121,6 +123,7 @@ export function ConfigSidebar({
                   onStart={onStart}
                   onStop={onStop}
                   isConnected={isConnected}
+                  isConnecting={isConnecting}
                   statusMessage={statusMessage}
                   statusType={statusType}
                   onModelChange={onModelChange}
