@@ -10,6 +10,7 @@ interface VoiceControlsProps {
   onStart: (voice: string, model: string) => void;
   onStop: () => void;
   isConnected: boolean;
+  isConnecting: boolean;
   statusMessage: string;
   statusType: 'idle' | 'success' | 'error' | 'connecting';
   onModelChange?: (model: string) => void;
@@ -43,6 +44,7 @@ export default function VoiceControls({
   onStart,
   onStop,
   isConnected,
+  isConnecting,
   statusMessage,
   statusType,
   onModelChange,
@@ -160,8 +162,9 @@ export default function VoiceControls({
           onClick={isConnected ? onStop : handleStart}
           className="w-full bg-primary hover:bg-primary/90"
           variant={isConnected ? 'destructive' : 'default'}
+          disabled={isConnecting}
         >
-          {isConnected ? 'Stop Session' : 'Start Session'}
+          {isConnecting ? 'Connecting...' : isConnected ? 'Stop Session' : 'Start Session'}
         </Button>
 
         {statusMessage && (

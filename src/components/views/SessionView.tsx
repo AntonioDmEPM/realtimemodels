@@ -20,6 +20,7 @@ interface EventEntry {
 
 interface SessionViewProps {
   isConnected: boolean;
+  isConnecting: boolean;
   isAudioActive: boolean;
   sessionStartTime: number | null;
   currentSentiment: {
@@ -48,6 +49,7 @@ interface SessionViewProps {
 
 export function SessionView({
   isConnected,
+  isConnecting,
   isAudioActive,
   sessionStartTime,
   currentSentiment,
@@ -81,8 +83,9 @@ export function SessionView({
                   onClick={isConnected ? onStop : onStart}
                   variant={isConnected ? 'destructive' : 'default'}
                   size="sm"
+                  disabled={isConnecting}
                 >
-                  {isConnected ? 'Stop' : 'Start'}
+                  {isConnecting ? 'Connecting...' : isConnected ? 'Stop' : 'Start'}
                 </Button>
                 <Button onClick={onResetAll} variant="outline" size="sm" disabled={isConnected}>
                   Reset
