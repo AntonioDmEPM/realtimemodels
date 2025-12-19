@@ -96,51 +96,76 @@ export async function createRealtimeSession(
   let delayNode: DelayNode | null = null;
   let gainNode: GainNode | null = null;
   let sourceNode: MediaStreamAudioSourceNode | null = null;
+  let audioStream: MediaStream | null = null; // Store stream for reconnection
   const validationDelayMs = validationConfig?.delayMs ?? 500;
 
   // Reference to data channel for validation trigger
   let dataChannelRef: RTCDataChannel | null = null;
 
+  // Function to reconnect audio source after validation failure
+  const reconnectAudioSource = () => {
+    if (!audioContext || !delayNode || !audioStream) return;
+    
+    try {
+      // Disconnect existing source if any
+      if (sourceNode) {
+        try { sourceNode.disconnect(); } catch (e) { /* ignore */ }
+      }
+      
+      // Create new source from stored stream
+      sourceNode = audioContext.createMediaStreamSource(audioStream);
+      sourceNode.connect(delayNode);
+      console.log('🔄 Audio source reconnected');
+    } catch (e) {
+      console.error('Failed to reconnect audio source:', e);
+    }
+  };
+
   // Function to handle validation failure - injects trigger to model
   const handleValidationFailure = (reason: string) => {
     console.log('🚨 Validation failed - triggering model rephrase...');
     
-    // 1. Immediately mute/cancel buffered audio
+    // 1. Immediately mute buffered audio (don't disconnect, just mute!)
     if (gainNode && audioContext) {
       gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      console.log('🔇 Audio muted due to validation failure');
     }
     
-    // 2. Disconnect source to stop buffered audio
-    if (sourceNode) {
-      try {
-        sourceNode.disconnect();
-      } catch (e) {
-        console.warn('Could not disconnect source:', e);
-      }
-    }
-    
-    // 3. Send trigger message to the model via data channel
+    // 2. Cancel any ongoing response first
     if (dataChannelRef && dataChannelRef.readyState === 'open') {
-      const triggerMessage = {
-        type: 'conversation.item.create',
-        item: {
-          type: 'message',
-          role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text: '[VALIDATION_FAILED]'
-            }
-          ]
-        }
-      };
-      
-      console.log('📤 Sending validation trigger to model...');
-      dataChannelRef.send(JSON.stringify(triggerMessage));
-      
-      // 4. Request new response from model
-      dataChannelRef.send(JSON.stringify({ type: 'response.create' }));
+      console.log('🛑 Cancelling current response...');
+      dataChannelRef.send(JSON.stringify({ type: 'response.cancel' }));
     }
+    
+    // 3. Small delay to ensure cancel is processed, then send trigger
+    setTimeout(() => {
+      if (dataChannelRef && dataChannelRef.readyState === 'open') {
+        const triggerMessage = {
+          type: 'conversation.item.create',
+          item: {
+            type: 'message',
+            role: 'user',
+            content: [
+              {
+                type: 'input_text',
+                text: '[VALIDATION_FAILED]'
+              }
+            ]
+          }
+        };
+        
+        console.log('📤 Sending validation trigger to model...');
+        dataChannelRef.send(JSON.stringify(triggerMessage));
+        
+        // 4. Request new response from model
+        setTimeout(() => {
+          if (dataChannelRef && dataChannelRef.readyState === 'open') {
+            dataChannelRef.send(JSON.stringify({ type: 'response.create' }));
+            console.log('📤 Requested new response from model');
+          }
+        }, 100);
+      }
+    }, 100);
     
     onMessage({
       type: 'validation.failed',
@@ -231,6 +256,7 @@ export async function createRealtimeSession(
 
       // Route through AudioContext with delay for validation
       const stream = e.streams?.[0] ?? new MediaStream([e.track]);
+      audioStream = stream; // Store for potential reconnection
       
       if (audioContext && delayNode) {
         // Resume AudioContext if suspended
@@ -306,10 +332,13 @@ export async function createRealtimeSession(
         console.log('🚀 Response started:', eventData.response?.id);
         // Reset transcript accumulator for new response
         currentTranscript = '';
-        // Ensure audio is enabled for new response
+        // Ensure audio is enabled and reconnected for new response
         if (gainNode && audioContext) {
           gainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
+          console.log('🔊 Audio gain restored to 1.0');
         }
+        // Reconnect audio source in case it was disconnected
+        reconnectAudioSource();
       }
       
       // Accumulate transcript for validation
