@@ -56,6 +56,12 @@ export function calculateCosts(
   return { inputCost, outputCost, totalCost };
 }
 
+export interface ValidationConfig {
+  enabled: boolean;
+  rules: string;
+  delayMs: number;
+}
+
 export async function createRealtimeSession(
   inStream: MediaStream,
   token: string,
@@ -67,7 +73,8 @@ export async function createRealtimeSession(
   knowledgeBaseId?: string,
   textOnly: boolean = false,
   realtimeSettings?: any,
-  searchEnabled: boolean = true
+  searchEnabled: boolean = true,
+  validationConfig?: ValidationConfig
 ): Promise<{ pc: RTCPeerConnection; dc: RTCDataChannel }> {
   const pc = new RTCPeerConnection();
 
@@ -82,15 +89,87 @@ export async function createRealtimeSession(
     console.log('📡 pc.signalingState:', pc.signalingState);
   };
 
+  // Audio validation state
+  let currentTranscript = '';
+  let audioContext: AudioContext | null = null;
+  let delayNode: DelayNode | null = null;
+  let gainNode: GainNode | null = null;
+  let sourceNode: MediaStreamAudioSourceNode | null = null;
+  const validationDelayMs = validationConfig?.delayMs ?? 500;
+
+  // Function to play apology audio using Web Speech API
+  const playApologyAudio = async () => {
+    console.log('🔇 Playing apology message...');
+    if (gainNode && audioContext) {
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    }
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(
+        "I apologize, but I need to rephrase that response. Let me try again."
+      );
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const englishVoice = voices.find(v => v.lang.startsWith('en'));
+      if (englishVoice) utterance.voice = englishVoice;
+      window.speechSynthesis.speak(utterance);
+    }
+    onMessage({
+      type: 'validation.failed',
+      message: 'Response did not pass validation. Playing apology.',
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  // Function to validate transcript
+  const validateTranscript = async (transcript: string): Promise<boolean> => {
+    if (!validationConfig?.enabled || !transcript.trim()) return true;
+    console.log('🔍 Validating transcript:', transcript.substring(0, 100) + '...');
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-transcript`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseToken}`
+        },
+        body: JSON.stringify({ transcript, validationRules: validationConfig.rules })
+      });
+      const result = await response.json();
+      console.log('✅ Validation result:', result);
+      onMessage({
+        type: 'validation.result',
+        valid: result.valid,
+        reason: result.reason,
+        transcript: transcript.substring(0, 100),
+        timestamp: new Date().toISOString()
+      });
+      return result.valid;
+    } catch (error) {
+      console.error('Validation error:', error);
+      return true; // Fail open
+    }
+  };
+
   // Only play audio output in voice mode
   let audioElement: HTMLAudioElement | null = null;
 
   if (!textOnly) {
-    // "Unlock" audio playback as early as possible (while we’re still in the user gesture)
+    // Create AudioContext for delayed playback with validation
+    audioContext = new AudioContext({ sampleRate: 24000 });
+    delayNode = audioContext.createDelay(2.0);
+    delayNode.delayTime.value = validationConfig?.enabled ? validationDelayMs / 1000 : 0;
+    gainNode = audioContext.createGain();
+    gainNode.gain.value = 1.0;
+    delayNode.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    console.log(`🔊 Audio delay set to ${validationConfig?.enabled ? validationDelayMs : 0}ms for validation`);
+
+    // "Unlock" audio playback as early as possible (while we're still in the user gesture)
     audioElement = new Audio();
     audioElement.autoplay = true;
-    audioElement.muted = true; // start muted to avoid any autoplay restrictions
-    audioElement.volume = 1;
+    audioElement.muted = true; // Keep muted - we use AudioContext for output
+    audioElement.volume = 0;
 
     // iOS/Safari friendliness
     (audioElement as any).playsInline = true;
@@ -123,44 +202,43 @@ export async function createRealtimeSession(
 
       if (e.track?.kind !== 'audio') return;
 
+      // Route through AudioContext with delay for validation
+      const stream = e.streams?.[0] ?? new MediaStream([e.track]);
+      
+      if (audioContext && delayNode) {
+        // Resume AudioContext if suspended
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        
+        sourceNode = audioContext.createMediaStreamSource(stream);
+        sourceNode.connect(delayNode);
+        console.log('✅ Audio routed through delay node for validation');
+      }
+
+      // Keep muted reference on audio element for browser compatibility
       if (!audioElement) {
         audioElement = new Audio();
         audioElement.autoplay = true;
         audioElement.muted = true;
-        audioElement.volume = 1;
+        audioElement.volume = 0;
 
         (audioElement as any).playsInline = true;
         audioElement.setAttribute('playsinline', 'true');
 
         audioElement.style.position = 'fixed';
         audioElement.style.left = '-9999px';
-        audioElement.style.top = '0';
-        audioElement.style.width = '1px';
-        audioElement.style.height = '1px';
-        audioElement.style.opacity = '0';
-        audioElement.style.pointerEvents = 'none';
       }
 
-      // Some browsers may not populate `e.streams`; fall back to a stream from the track.
-      const stream = e.streams?.[0] ?? new MediaStream([e.track]);
       audioElement.srcObject = stream;
-      audioElement.muted = false;
-
+      
       if (document.body && !audioElement.isConnected) {
         document.body.appendChild(audioElement);
       }
 
-      const playPromise = audioElement.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log('✅ Audio playback started successfully');
-          })
-          .catch((error) => {
-            console.error('❌ Audio playback failed:', error);
-            console.log('Audio may require user interaction to play');
-          });
-      }
+      audioElement.play().catch((error) => {
+        console.error('❌ Audio element play failed:', error);
+      });
     };
   }
 
@@ -198,19 +276,50 @@ export async function createRealtimeSession(
       // Log response events for debugging
       if (eventData.type === 'response.created') {
         console.log('🚀 Response started:', eventData.response?.id);
+        // Reset transcript accumulator for new response
+        currentTranscript = '';
+        // Ensure audio is enabled for new response
+        if (gainNode && audioContext) {
+          gainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
+        }
       }
+      
+      // Accumulate transcript for validation
+      if (eventData.type === 'response.audio_transcript.delta') {
+        currentTranscript += eventData.delta || '';
+        console.log('📝 Transcript accumulating:', currentTranscript.length, 'chars');
+      }
+      
       if (eventData.type === 'response.audio.delta') {
         console.log('🔊 Audio delta received, length:', eventData.delta?.length || 0);
       }
       if (eventData.type === 'response.audio.done') {
         console.log('✅ Audio response complete');
       }
+      
+      // Validate transcript when response is done
       if (eventData.type === 'response.done') {
         console.log('📨 Response done:', {
           status: eventData.response?.status,
           reason: eventData.response?.status_details?.reason,
           outputTokens: eventData.response?.usage?.output_tokens
         });
+        
+        // Trigger validation if enabled and we have transcript
+        if (validationConfig?.enabled && currentTranscript.trim()) {
+          console.log('🔍 Triggering transcript validation...');
+          validateTranscript(currentTranscript).then(isValid => {
+            if (!isValid) {
+              console.log('❌ Validation failed - muting audio and playing apology');
+              playApologyAudio();
+            } else {
+              console.log('✅ Validation passed - audio continues');
+            }
+          });
+        }
+        
+        // Reset transcript for next response
+        currentTranscript = '';
       }
       
       // Confirm session was updated by OpenAI
@@ -233,20 +342,16 @@ export async function createRealtimeSession(
           ? null
           : {
               type: 'server_vad',
-              // Higher threshold reduces accidental interruptions from background noise.
               threshold: 0.65,
               prefix_padding_ms: 300,
               silence_duration_ms: 1000,
-              // Ensure the assistant responds automatically after speech stops.
               create_response: true,
-              // Prevent assistant audio from being cancelled by brief mic noise.
               interrupt_response: false,
             };
 
         const baseModalities: Array<'text' | 'audio'> =
           realtimeSettings?.modalities ?? (textOnly ? ['text'] : ['audio', 'text']);
 
-        // In voice mode, ALWAYS include both audio + text so we get spoken output AND transcripts.
         const normalizedModalities = textOnly
           ? baseModalities
           : (Array.from(new Set([...baseModalities, 'audio', 'text'])) as Array<'text' | 'audio'>);
@@ -255,12 +360,8 @@ export async function createRealtimeSession(
           if (textOnly) return null;
           if (!td) return defaultTurnDetection;
           if (typeof td !== 'object') return defaultTurnDetection;
-
-          // Some older saved settings may use type:'none' — we don't support a manual (non-VAD) audio UX yet,
-          // so force server VAD to ensure the assistant actually responds.
           if (td.type === 'none') return defaultTurnDetection;
 
-          // Accept both camelCase (UI) and snake_case (API)
           const prefixPaddingMs = td.prefix_padding_ms ?? td.prefixPaddingMs ?? 300;
           const silenceDurationMs = td.silence_duration_ms ?? td.silenceDurationMs ?? 1000;
 
@@ -294,7 +395,6 @@ export async function createRealtimeSession(
           turn_detection: normalizedTurnDetection,
         });
 
-        // CRITICAL: Always enable transcription unless explicitly disabled or in text-only mode
         if (!textOnly) {
           sessionUpdate.session.input_audio_transcription = { model: 'whisper-1' };
           console.log('✅ Input audio transcription ENABLED (Whisper-1)');
@@ -302,10 +402,8 @@ export async function createRealtimeSession(
           console.log('⚠️ Input audio transcription DISABLED (text-only mode)');
         }
 
-        // Add tools conditionally based on settings
         sessionUpdate.session.tools = [];
         
-        // Only add web search if enabled
         if (searchEnabled) {
           sessionUpdate.session.tools.push({
             type: 'function',
@@ -324,7 +422,6 @@ export async function createRealtimeSession(
           });
         }
         
-        // Add knowledge base search tool if available
         if (knowledgeBaseId) {
           sessionUpdate.session.tools.push({
             type: 'function',
@@ -356,16 +453,10 @@ export async function createRealtimeSession(
         const functionName = eventData.name;
         const args = JSON.parse(eventData.arguments);
 
-        // IMPORTANT: After function call outputs, we MUST trigger response.create
-        // in BOTH voice and text modes. Server VAD only detects user speech,
-        // it does NOT auto-trigger responses after function results are sent.
-        // Without this, the model waits silently for user input after tool calls.
-
         if (functionName === 'web_search') {
           console.log('AI requesting web search:', args.query);
           console.log('Using Supabase token:', supabaseToken ? 'Token present' : 'NO TOKEN');
 
-          // Store the search request in an event for display
           onMessage({
             type: 'web_search.request',
             call_id: callId,
@@ -384,12 +475,10 @@ export async function createRealtimeSession(
               }
             };
             dc.send(JSON.stringify(functionOutput));
-            // Always trigger response after function output
             dc.send(JSON.stringify({ type: 'response.create' }));
             return;
           }
 
-          // Call the web-search edge function
           fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/web-search`, {
             method: 'POST',
             headers: {
@@ -404,7 +493,6 @@ export async function createRealtimeSession(
             .then(data => {
               console.log('Web search results:', data.results);
 
-              // Store the search results in an event for display
               onMessage({
                 type: 'web_search.results',
                 call_id: callId,
@@ -414,14 +502,12 @@ export async function createRealtimeSession(
                 timestamp: new Date().toISOString()
               });
 
-              // Format search results for the AI
               const searchContext = `Web Search Results for "${data.query}":\n\n` +
                 (data.answer_box ? `Direct Answer: ${data.answer_box.answer}\n\n` : '') +
                 (data.results || []).map((r: any, i: number) =>
                   `${i + 1}. ${r.title}\n   ${r.snippet}\n   Link: ${r.link}`
                 ).join('\n\n');
 
-              // Send the search results back to the AI
               const functionOutput = {
                 type: 'conversation.item.create',
                 item: {
@@ -432,15 +518,12 @@ export async function createRealtimeSession(
               };
 
               dc.send(JSON.stringify(functionOutput));
-
-              // Always trigger response after function output - VAD doesn't auto-respond to tool results
               console.log('📢 Triggering response.create after web search results');
               dc.send(JSON.stringify({ type: 'response.create' }));
             })
             .catch(err => {
               console.error('Error performing web search:', err);
 
-              // Send error back to AI
               const functionOutput = {
                 type: 'conversation.item.create',
                 item: {
@@ -456,7 +539,6 @@ export async function createRealtimeSession(
         } else if (functionName === 'search_knowledge_base' && knowledgeBaseId) {
           console.log('AI requesting knowledge base search:', args.query);
 
-          // Call the search-knowledge function
           fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-knowledge`, {
             method: 'POST',
             headers: {
@@ -472,7 +554,6 @@ export async function createRealtimeSession(
             .then(data => {
               console.log('Knowledge base search results:', data.results);
 
-              // Store the knowledge results in an event for display
               onMessage({
                 type: 'knowledge_base.search_results',
                 call_id: callId,
@@ -481,7 +562,6 @@ export async function createRealtimeSession(
                 timestamp: new Date().toISOString()
               });
 
-              // Send the search results back to the AI
               const functionOutput = {
                 type: 'conversation.item.create',
                 item: {
@@ -492,15 +572,12 @@ export async function createRealtimeSession(
               };
 
               dc.send(JSON.stringify(functionOutput));
-
-              // Always trigger response after function output
               console.log('📢 Triggering response.create after knowledge base search results');
               dc.send(JSON.stringify({ type: 'response.create' }));
             })
             .catch(err => {
               console.error('Error searching knowledge base:', err);
 
-              // Send error back to AI
               const functionOutput = {
                 type: 'conversation.item.create',
                 item: {
@@ -525,7 +602,6 @@ export async function createRealtimeSession(
         if (transcript && transcript.trim().length > 0) {
           console.log('🎯 Triggering structural sentiment analysis for item:', itemId);
           
-          // Call client-side sentiment analysis edge function
           fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-sentiment`, {
             method: 'POST',
             headers: {
@@ -541,7 +617,6 @@ export async function createRealtimeSession(
             .then(data => {
               console.log('✅ Sentiment analysis result:', data);
               
-              // Emit sentiment event with item_id for correlation
               onMessage({
                 type: 'sentiment.detected',
                 item_id: itemId,

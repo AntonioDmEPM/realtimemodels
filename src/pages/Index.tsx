@@ -12,7 +12,7 @@ import { SystemPromptView } from '@/components/views/SystemPromptView';
 import { KnowledgeBaseView } from '@/components/views/KnowledgeBaseView';
 import { SearchSettingsView } from '@/components/views/SearchSettingsView';
 import { SessionView } from '@/components/views/SessionView';
-import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig } from '@/utils/webrtcAudio';
+import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig, ValidationConfig } from '@/utils/webrtcAudio';
 import { updateSessionTone } from '@/utils/toneAdapter';
 import { useToast } from '@/hooks/use-toast';
 import { useRingtone } from '@/hooks/useRingtone';
