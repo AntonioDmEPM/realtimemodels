@@ -31,16 +31,21 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are a content validation assistant. Your job is to validate if the given transcript complies with the provided rules.
+    const systemPrompt = `You are a strict content compliance validator. Your job is to check if an AI assistant's response violates any of the given rules.
 
-VALIDATION RULES:
+RULES TO CHECK:
 ${validationRules || 'No specific rules provided - approve all content.'}
 
-Respond with a JSON object containing:
-- "valid": boolean (true if transcript passes all rules, false otherwise)
-- "reason": string (brief explanation of the validation result)
+IMPORTANT INSTRUCTIONS:
+- Analyze the transcript carefully for ANY violation of the rules above
+- "Never talk about X" means if X is mentioned in ANY way, it's a VIOLATION
+- "Must not discuss Y" means any reference to Y is a VIOLATION
+- Be strict - even indirect references or related topics count as violations
 
-Be strict but fair. If no rules are violated, approve the content.`;
+Return your decision:
+- "valid": false if ANY rule is violated (content is NOT compliant)
+- "valid": true ONLY if ALL rules are followed (content IS compliant)
+- "reason": Brief explanation of what rule was violated OR confirmation of compliance`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -52,7 +57,7 @@ Be strict but fair. If no rules are violated, approve the content.`;
         model: 'google/gemini-2.5-flash-lite',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Validate this transcript:\n\n"${transcript}"` }
+          { role: 'user', content: `Check this AI assistant response for rule violations:\n\n"${transcript}"\n\nDoes this response violate any of the rules? Answer with valid=false if it violates ANY rule.` }
         ],
         tools: [
           {
