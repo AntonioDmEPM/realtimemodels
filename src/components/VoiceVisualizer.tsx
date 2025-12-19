@@ -175,24 +175,31 @@ export default function VoiceVisualizer({
       ctx.arc(centerX, centerY, baseRadius - 8, 0, Math.PI * 2);
       ctx.fill();
 
-      // Draw waveform border
+      // Draw waveform border - distribute signal evenly around the circle
       ctx.beginPath();
+      
+      // Calculate average amplitude from frequency data for even distribution
+      const avgAmplitude = inputData.reduce((sum, val) => sum + val, 0) / inputData.length / 255;
       
       for (let i = 0; i <= numPoints; i++) {
         const angle = (i / numPoints) * Math.PI * 2 - Math.PI / 2;
         
-        // Get frequency amplitude for this point
-        const freqIndex = Math.floor((i / numPoints) * inputData.length * 0.6);
-        const amplitude = inputData[freqIndex] / 255;
+        // Use modular sampling to spread frequency data evenly around the circle
+        // Sample from different parts of the frequency spectrum based on position
+        const sampleIndex = Math.floor((i * inputData.length) / numPoints) % inputData.length;
+        const amplitude = inputData[sampleIndex] / 255;
         
-        // Calculate wave displacement with multiple frequencies
-        const wave1 = Math.sin(angle * 6 + phase) * 3;
-        const wave2 = Math.sin(angle * 12 + phase * 1.5) * 2;
-        const wave3 = Math.sin(angle * 3 + phase * 0.7) * 4;
+        // Create multiple wave layers that travel around the entire circle
+        const wave1 = Math.sin(angle * 4 + phase * 2) * 4;
+        const wave2 = Math.sin(angle * 8 + phase * 1.3) * 2;
+        const wave3 = Math.sin(angle * 2 - phase * 0.8) * 3;
+        
+        // Blend individual sample with average for smoother distribution
+        const blendedAmplitude = amplitude * 0.6 + avgAmplitude * 0.4;
         
         const waveAmplitude = isSpeaking ? 
-          Math.max(5, amplitude * 30 + (wave1 + wave2 + wave3) * activeLevel) :
-          3 + (wave1 + wave3) * 0.3;
+          Math.max(4, blendedAmplitude * 25 + (wave1 + wave2 + wave3) * activeLevel * 1.5) :
+          2 + (wave1 + wave3) * 0.25;
         
         const radius = baseRadius + waveAmplitude;
         
@@ -208,12 +215,13 @@ export default function VoiceVisualizer({
       
       ctx.closePath();
       
-      // Animated gradient stroke
+      // Animated gradient stroke that rotates around the orb
+      const gradientAngle = phase * 0.5;
       const strokeGradient = ctx.createLinearGradient(
-        centerX + Math.cos(phase) * baseRadius,
-        centerY + Math.sin(phase) * baseRadius,
-        centerX + Math.cos(phase + Math.PI) * baseRadius,
-        centerY + Math.sin(phase + Math.PI) * baseRadius
+        centerX + Math.cos(gradientAngle) * baseRadius,
+        centerY + Math.sin(gradientAngle) * baseRadius,
+        centerX + Math.cos(gradientAngle + Math.PI) * baseRadius,
+        centerY + Math.sin(gradientAngle + Math.PI) * baseRadius
       );
       
       const color2 = lerpColor(Math.min(1, currentColor + 0.2));
