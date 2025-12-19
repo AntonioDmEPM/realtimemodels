@@ -356,9 +356,10 @@ export async function createRealtimeSession(
         const functionName = eventData.name;
         const args = JSON.parse(eventData.arguments);
 
-        // In voice mode we use server VAD, so we should NOT force extra responses.
-        // Manually creating responses here causes duplicate assistant outputs.
-        const shouldManuallyCreateResponse = !!textOnly;
+        // IMPORTANT: After function call outputs, we MUST trigger response.create
+        // in BOTH voice and text modes. Server VAD only detects user speech,
+        // it does NOT auto-trigger responses after function results are sent.
+        // Without this, the model waits silently for user input after tool calls.
 
         if (functionName === 'web_search') {
           console.log('AI requesting web search:', args.query);
@@ -383,9 +384,8 @@ export async function createRealtimeSession(
               }
             };
             dc.send(JSON.stringify(functionOutput));
-            if (shouldManuallyCreateResponse) {
-              dc.send(JSON.stringify({ type: 'response.create' }));
-            }
+            // Always trigger response after function output
+            dc.send(JSON.stringify({ type: 'response.create' }));
             return;
           }
 
@@ -433,10 +433,9 @@ export async function createRealtimeSession(
 
               dc.send(JSON.stringify(functionOutput));
 
-              // Only needed in text-only mode
-              if (shouldManuallyCreateResponse) {
-                dc.send(JSON.stringify({ type: 'response.create' }));
-              }
+              // Always trigger response after function output - VAD doesn't auto-respond to tool results
+              console.log('📢 Triggering response.create after web search results');
+              dc.send(JSON.stringify({ type: 'response.create' }));
             })
             .catch(err => {
               console.error('Error performing web search:', err);
@@ -452,9 +451,7 @@ export async function createRealtimeSession(
               };
 
               dc.send(JSON.stringify(functionOutput));
-              if (shouldManuallyCreateResponse) {
-                dc.send(JSON.stringify({ type: 'response.create' }));
-              }
+              dc.send(JSON.stringify({ type: 'response.create' }));
             });
         } else if (functionName === 'search_knowledge_base' && knowledgeBaseId) {
           console.log('AI requesting knowledge base search:', args.query);
@@ -496,9 +493,9 @@ export async function createRealtimeSession(
 
               dc.send(JSON.stringify(functionOutput));
 
-              if (shouldManuallyCreateResponse) {
-                dc.send(JSON.stringify({ type: 'response.create' }));
-              }
+              // Always trigger response after function output
+              console.log('📢 Triggering response.create after knowledge base search results');
+              dc.send(JSON.stringify({ type: 'response.create' }));
             })
             .catch(err => {
               console.error('Error searching knowledge base:', err);
@@ -514,9 +511,7 @@ export async function createRealtimeSession(
               };
 
               dc.send(JSON.stringify(functionOutput));
-              if (shouldManuallyCreateResponse) {
-                dc.send(JSON.stringify({ type: 'response.create' }));
-              }
+              dc.send(JSON.stringify({ type: 'response.create' }));
             });
         }
       }
