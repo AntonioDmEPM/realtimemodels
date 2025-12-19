@@ -12,6 +12,7 @@ import { SystemPromptView } from '@/components/views/SystemPromptView';
 import { KnowledgeBaseView } from '@/components/views/KnowledgeBaseView';
 import { SearchSettingsView } from '@/components/views/SearchSettingsView';
 import { SessionView } from '@/components/views/SessionView';
+import { ValidationSettingsView } from '@/components/views/ValidationSettingsView';
 import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig, ValidationConfig } from '@/utils/webrtcAudio';
 import { updateSessionTone } from '@/utils/toneAdapter';
 import { useToast } from '@/hooks/use-toast';
@@ -109,6 +110,11 @@ export default function Index() {
   const [currentView, setCurrentView] = useState('session'); // Default to session view
   const [realtimeSettings, setRealtimeSettings] = useState<RealtimeModelSettings>(DEFAULT_REALTIME_SETTINGS);
   const [chatSettings, setChatSettings] = useState<ChatModelSettings>(DEFAULT_CHAT_SETTINGS);
+  
+  // Validation settings
+  const [validationEnabled, setValidationEnabled] = useState(false);
+  const [validationRules, setValidationRules] = useState('');
+  const [validationDelayMs, setValidationDelayMs] = useState(500);
 
   // Authentication check
   useEffect(() => {
@@ -388,6 +394,12 @@ export default function Index() {
         // Check if any search type is enabled
         const isSearchEnabled = Object.values(searchTypes).some(enabled => enabled);
         
+        const validationConfig: ValidationConfig | undefined = validationEnabled ? {
+          enabled: true,
+          rules: validationRules,
+          delayMs: validationDelayMs
+        } : undefined;
+        
         const {
           pc,
           dc
@@ -402,7 +414,8 @@ export default function Index() {
           knowledgeBaseId || undefined, 
           false, 
           realtimeSettings,
-          isSearchEnabled
+          isSearchEnabled,
+          validationConfig
         );
         
         // Stop ringtone when connected
@@ -1255,6 +1268,17 @@ export default function Index() {
             searchTypes={searchTypes}
             onSearchServiceChange={setSearchService}
             onSearchTypesChange={setSearchTypes}
+          />
+        );
+      case 'validation':
+        return (
+          <ValidationSettingsView
+            validationEnabled={validationEnabled}
+            validationRules={validationRules}
+            validationDelayMs={validationDelayMs}
+            onValidationEnabledChange={setValidationEnabled}
+            onValidationRulesChange={setValidationRules}
+            onValidationDelayChange={setValidationDelayMs}
           />
         );
       case 'session':

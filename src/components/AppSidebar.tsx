@@ -1,4 +1,4 @@
-import { Settings, MessageSquare, Database, Search, Activity } from 'lucide-react';
+import { Settings, MessageSquare, Database, Search, Activity, ShieldCheck } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -16,6 +16,7 @@ const navItems = [
   { id: 'system-prompt', title: 'System Prompt', icon: MessageSquare },
   { id: 'knowledge-base', title: 'Knowledge Base', icon: Database },
   { id: 'search-settings', title: 'Search Settings', icon: Search },
+  { id: 'validation', title: 'Validation', icon: ShieldCheck },
 ];
 
 interface AppSidebarProps {
