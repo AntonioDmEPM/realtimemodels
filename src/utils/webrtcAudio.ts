@@ -60,6 +60,7 @@ export interface ValidationConfig {
   enabled: boolean;
   rules: string;
   delayMs: number;
+  standardMessage: string;
 }
 
 export async function createRealtimeSession(
@@ -97,34 +98,60 @@ export async function createRealtimeSession(
   let sourceNode: MediaStreamAudioSourceNode | null = null;
   const validationDelayMs = validationConfig?.delayMs ?? 500;
 
-  // Function to play apology audio using Web Speech API
-  const playApologyAudio = async () => {
-    console.log('🔇 Playing apology message...');
+  // Reference to data channel for validation trigger
+  let dataChannelRef: RTCDataChannel | null = null;
+
+  // Function to handle validation failure - injects trigger to model
+  const handleValidationFailure = (reason: string) => {
+    console.log('🚨 Validation failed - triggering model rephrase...');
+    
+    // 1. Immediately mute/cancel buffered audio
     if (gainNode && audioContext) {
       gainNode.gain.setValueAtTime(0, audioContext.currentTime);
     }
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(
-        "I apologize, but I need to rephrase that response. Let me try again."
-      );
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-      const voices = window.speechSynthesis.getVoices();
-      const englishVoice = voices.find(v => v.lang.startsWith('en'));
-      if (englishVoice) utterance.voice = englishVoice;
-      window.speechSynthesis.speak(utterance);
+    
+    // 2. Disconnect source to stop buffered audio
+    if (sourceNode) {
+      try {
+        sourceNode.disconnect();
+      } catch (e) {
+        console.warn('Could not disconnect source:', e);
+      }
     }
+    
+    // 3. Send trigger message to the model via data channel
+    if (dataChannelRef && dataChannelRef.readyState === 'open') {
+      const triggerMessage = {
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: '[VALIDATION_FAILED]'
+            }
+          ]
+        }
+      };
+      
+      console.log('📤 Sending validation trigger to model...');
+      dataChannelRef.send(JSON.stringify(triggerMessage));
+      
+      // 4. Request new response from model
+      dataChannelRef.send(JSON.stringify({ type: 'response.create' }));
+    }
+    
     onMessage({
       type: 'validation.failed',
-      message: 'Response did not pass validation. Playing apology.',
+      message: `Validation failed: ${reason}. Model instructed to rephrase.`,
       timestamp: new Date().toISOString()
     });
   };
 
   // Function to validate transcript
-  const validateTranscript = async (transcript: string): Promise<boolean> => {
-    if (!validationConfig?.enabled || !transcript.trim()) return true;
+  const validateTranscript = async (transcript: string): Promise<{ valid: boolean; reason: string }> => {
+    if (!validationConfig?.enabled || !transcript.trim()) return { valid: true, reason: '' };
     console.log('🔍 Validating transcript:', transcript.substring(0, 100) + '...');
     try {
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-transcript`, {
@@ -144,10 +171,10 @@ export async function createRealtimeSession(
         transcript: transcript.substring(0, 100),
         timestamp: new Date().toISOString()
       });
-      return result.valid;
+      return { valid: result.valid, reason: result.reason || 'Validation failed' };
     } catch (error) {
       console.error('Validation error:', error);
-      return true; // Fail open
+      return { valid: true, reason: '' }; // Fail open
     }
   };
 
@@ -246,6 +273,7 @@ export async function createRealtimeSession(
   pc.addTrack(inStream.getTracks()[0]);
 
   const dc = pc.createDataChannel('oai-events');
+  dataChannelRef = dc; // Store reference for validation trigger
 
   dc.addEventListener('open', () => {
     console.log('✅ DataChannel open:', dc.label);
@@ -308,12 +336,16 @@ export async function createRealtimeSession(
         // Trigger validation if enabled and we have transcript
         if (validationConfig?.enabled && currentTranscript.trim()) {
           console.log('🔍 Triggering transcript validation...');
-          validateTranscript(currentTranscript).then(isValid => {
-            if (!isValid) {
-              console.log('❌ Validation failed - muting audio and playing apology');
-              playApologyAudio();
+          validateTranscript(currentTranscript).then(result => {
+            if (!result.valid) {
+              console.log('❌ Validation failed - triggering model rephrase');
+              handleValidationFailure(result.reason);
             } else {
               console.log('✅ Validation passed - audio continues');
+              // Re-enable audio gain if it was muted
+              if (gainNode && audioContext) {
+                gainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
+              }
             }
           });
         }
@@ -377,10 +409,27 @@ export async function createRealtimeSession(
 
         const normalizedTurnDetection = normalizeTurnDetection(realtimeSettings?.turnDetection);
 
+        // Build instructions with validation awareness
+        let finalInstructions = instructions;
+        if (validationConfig?.enabled) {
+          const validationAddendum = `
+
+CRITICAL VALIDATION SYSTEM:
+Your responses are being validated externally against compliance rules. If you ever receive the exact message "[VALIDATION_FAILED]" from the user, it means your previous response violated a rule and was blocked. You MUST:
+1. Immediately acknowledge that you need to rephrase your previous response
+2. Use this standard message as a template: "${validationConfig.standardMessage}"
+3. Then provide an appropriate, compliant alternative response
+4. Continue the conversation naturally, maintaining high awareness not to repeat the violation
+
+Remember: The validation system is protecting the user and the business. Take it seriously.`;
+          finalInstructions = instructions + validationAddendum;
+          console.log('🛡️ Validation awareness added to instructions');
+        }
+
         const sessionUpdate: any = {
           type: 'session.update',
           session: {
-            instructions: instructions,
+            instructions: finalInstructions,
             modalities: normalizedModalities,
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
