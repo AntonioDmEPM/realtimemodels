@@ -15,6 +15,7 @@ import { SessionView } from '@/components/views/SessionView';
 import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig } from '@/utils/webrtcAudio';
 import { updateSessionTone } from '@/utils/toneAdapter';
 import { useToast } from '@/hooks/use-toast';
+import { useRingtone } from '@/hooks/useRingtone';
 import { RealtimeModelSettings, ChatModelSettings, DEFAULT_REALTIME_SETTINGS, DEFAULT_CHAT_SETTINGS } from '@/types/modelSettings';
 interface EventEntry {
   timestamp: string;
@@ -35,6 +36,7 @@ export default function Index() {
   const {
     toast
   } = useToast();
+  const { startRingtone, stopRingtone } = useRingtone();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -338,6 +340,9 @@ export default function Index() {
         });
       } else {
         // Voice mode: Use Realtime API with WebRTC
+        // Start ringtone while connecting
+        startRingtone();
+        
         setStatusMessage('Getting session token...');
         const {
           data: tokenData,
@@ -387,6 +392,10 @@ export default function Index() {
           realtimeSettings,
           isSearchEnabled
         );
+        
+        // Stop ringtone when connected
+        stopRingtone();
+        
         setPeerConnection(pc);
         setDataChannel(dc);
         const startTime = Date.now();
@@ -407,6 +416,9 @@ export default function Index() {
         });
       }
     } catch (err: any) {
+      // Stop ringtone on error
+      stopRingtone();
+      
       setStatusType('error');
       setIsConnecting(false);
       
