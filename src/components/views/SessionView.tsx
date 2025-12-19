@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Search } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import VoiceVisualizer from '@/components/VoiceVisualizer';
@@ -131,9 +131,15 @@ export function SessionView({
               </div>
             )}
             
-            {/* Sentiment Indicator */}
-            <div className="border-b p-3">
+            {/* Sentiment Indicator & Search Progress */}
+            <div className="border-b p-3 flex items-center justify-between">
               <SentimentIndicator sentiment={currentSentiment} />
+              {isSearching && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
+                  <Search className="h-4 w-4 animate-spin" />
+                  <span>Searching the web...</span>
+                </div>
+              )}
             </div>
             
             {/* Conversation - Scrollable area */}
