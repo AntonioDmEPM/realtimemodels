@@ -88,14 +88,14 @@ export function ValidationSettingsView({
                 value={[validationDelayMs]}
                 onValueChange={([value]) => onValidationDelayChange(value)}
                 min={100}
-                max={1000}
-                step={50}
+                max={3000}
+                step={100}
                 disabled={!validationEnabled}
               />
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>100ms</span>
-                <span>500ms</span>
-                <span>1000ms</span>
+                <span>1.5s</span>
+                <span>3s</span>
               </div>
             </div>
           </CardContent>
