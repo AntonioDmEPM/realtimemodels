@@ -5,6 +5,7 @@ export function useRingtone() {
   const oscillatorRef = useRef<OscillatorNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isPlayingRef = useRef(false);
 
   const startRingtone = useCallback(() => {
@@ -59,6 +60,11 @@ export function useRingtone() {
         burstCount++;
       }, 400);
 
+      // Auto-stop after 2 seconds
+      timeoutRef.current = setTimeout(() => {
+        stopRingtone();
+      }, 2000);
+
     } catch (error) {
       console.error('Failed to play ringtone:', error);
     }
@@ -66,6 +72,11 @@ export function useRingtone() {
 
   const stopRingtone = useCallback(() => {
     isPlayingRef.current = false;
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
 
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
