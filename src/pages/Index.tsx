@@ -16,6 +16,7 @@ import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, U
 import { updateSessionTone } from '@/utils/toneAdapter';
 import { useToast } from '@/hooks/use-toast';
 import { useRingtone } from '@/hooks/useRingtone';
+import { useBellSound } from '@/hooks/useBellSound';
 import { RealtimeModelSettings, ChatModelSettings, DEFAULT_REALTIME_SETTINGS, DEFAULT_CHAT_SETTINGS } from '@/types/modelSettings';
 interface EventEntry {
   timestamp: string;
@@ -37,6 +38,7 @@ export default function Index() {
     toast
   } = useToast();
   const { startRingtone, stopRingtone } = useRingtone();
+  const { playBell } = useBellSound();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -157,6 +159,16 @@ export default function Index() {
   };
   const handleMessage = (eventData: UsageEvent) => {
     addEvent(eventData);
+    
+    // Handle search progress events
+    if (eventData.type === 'web_search.request') {
+      setIsSearching(true);
+      console.log('🔍 Search started:', eventData.query);
+    } else if (eventData.type === 'web_search.results' || eventData.type === 'knowledge_base.search_results') {
+      setIsSearching(false);
+      playBell(); // Play bell sound when search completes
+      console.log('✅ Search completed');
+    }
     
     // Handle sentiment detection events
     if (eventData.type === 'sentiment.detected') {
