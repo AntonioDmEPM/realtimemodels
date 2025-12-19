@@ -4,24 +4,28 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
-import { ShieldCheck, Clock, FileText } from 'lucide-react';
+import { ShieldCheck, Clock, FileText, MessageSquare } from 'lucide-react';
 
 interface ValidationSettingsViewProps {
   validationEnabled: boolean;
   validationRules: string;
   validationDelayMs: number;
+  validationStandardMessage: string;
   onValidationEnabledChange: (enabled: boolean) => void;
   onValidationRulesChange: (rules: string) => void;
   onValidationDelayChange: (delayMs: number) => void;
+  onValidationStandardMessageChange: (message: string) => void;
 }
 
 export function ValidationSettingsView({
   validationEnabled,
   validationRules,
   validationDelayMs,
+  validationStandardMessage,
   onValidationEnabledChange,
   onValidationRulesChange,
   onValidationDelayChange,
+  onValidationStandardMessageChange,
 }: ValidationSettingsViewProps) {
   return (
     <div className="h-full overflow-auto p-6">
@@ -40,8 +44,8 @@ export function ValidationSettingsView({
               Enable Validation
             </CardTitle>
             <CardDescription>
-              When enabled, AI responses are validated against your rules before the audio plays.
-              If validation fails, an apology message is played instead.
+              When enabled, AI responses are validated against your rules. If validation fails,
+              the model is instructed to rephrase using your standard message.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -127,7 +131,32 @@ export function ValidationSettingsView({
             />
             <p className="text-xs text-muted-foreground">
               The AI will check each response against these rules. If any rule is violated, 
-              the audio will be muted and an apology will be played.
+              the model will be instructed to rephrase using the standard message below.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className={!validationEnabled ? 'opacity-50' : ''}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Standard Rephrase Message
+            </CardTitle>
+            <CardDescription>
+              When validation fails, the AI will use this message as a template to acknowledge and rephrase its response.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Textarea
+              placeholder="I apologize, but I need to rephrase my previous response. Let me provide a more appropriate answer."
+              value={validationStandardMessage}
+              onChange={(e) => onValidationStandardMessageChange(e.target.value)}
+              rows={3}
+              disabled={!validationEnabled}
+              className="text-sm"
+            />
+            <p className="text-xs text-muted-foreground">
+              The AI will speak this message and then provide a compliant alternative response.
             </p>
           </CardContent>
         </Card>
@@ -137,12 +166,13 @@ export function ValidationSettingsView({
             <div className="flex gap-3">
               <div className="shrink-0 text-amber-500">⚠️</div>
               <div className="space-y-1">
-                <p className="text-sm font-medium">Important Notes</p>
+                <p className="text-sm font-medium">How It Works</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• AI responses are validated against your rules in real-time</li>
+                  <li>• If validation fails, audio is muted and a [VALIDATION_FAILED] trigger is sent</li>
+                  <li>• The AI will acknowledge and rephrase using your standard message</li>
+                  <li>• The model maintains awareness to avoid repeating violations</li>
                   <li>• Validation adds latency equal to the buffer delay</li>
-                  <li>• The validation LLM call may occasionally fail - responses will pass by default</li>
-                  <li>• Complex rules may take longer to evaluate</li>
-                  <li>• Test your rules thoroughly before going live</li>
                 </ul>
               </div>
             </div>

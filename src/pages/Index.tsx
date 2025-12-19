@@ -115,6 +115,9 @@ export default function Index() {
   const [validationEnabled, setValidationEnabled] = useState(false);
   const [validationRules, setValidationRules] = useState('');
   const [validationDelayMs, setValidationDelayMs] = useState(500);
+  const [validationStandardMessage, setValidationStandardMessage] = useState(
+    "I apologize, but I need to rephrase my previous response. Let me provide a more appropriate answer."
+  );
 
   // Authentication check
   useEffect(() => {
@@ -397,7 +400,8 @@ export default function Index() {
         const validationConfig: ValidationConfig | undefined = validationEnabled ? {
           enabled: true,
           rules: validationRules,
-          delayMs: validationDelayMs
+          delayMs: validationDelayMs,
+          standardMessage: validationStandardMessage
         } : undefined;
         
         const {
@@ -1276,9 +1280,11 @@ export default function Index() {
             validationEnabled={validationEnabled}
             validationRules={validationRules}
             validationDelayMs={validationDelayMs}
+            validationStandardMessage={validationStandardMessage}
             onValidationEnabledChange={setValidationEnabled}
             onValidationRulesChange={setValidationRules}
             onValidationDelayChange={setValidationDelayMs}
+            onValidationStandardMessageChange={setValidationStandardMessage}
           />
         );
       case 'session':
