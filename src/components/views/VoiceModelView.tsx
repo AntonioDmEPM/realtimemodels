@@ -14,6 +14,7 @@ import {
 } from '@/types/modelSettings';
 import { RealtimeModelSettings as RealtimeSettingsComponent } from '@/components/RealtimeModelSettings';
 import { ChatModelSettings as ChatSettingsComponent } from '@/components/ChatModelSettings';
+import { FirstSpeaker } from '@/utils/webrtcAudio';
 
 const REALTIME_MODELS = [
   { id: 'gpt-4o-realtime-preview-2024-12-17', name: 'GPT-4o Realtime (2024-12-17)' },
@@ -46,10 +47,12 @@ interface VoiceModelViewProps {
   mode: 'voice' | 'chat';
   pricingConfig: PricingConfig;
   isConnected: boolean;
+  firstSpeaker: FirstSpeaker;
   onModelChange: (model: string) => void;
   onVoiceChange: (voice: string) => void;
   onModeChange: (mode: 'voice' | 'chat') => void;
   onPricingChange: (pricing: PricingConfig) => void;
+  onFirstSpeakerChange: (firstSpeaker: FirstSpeaker) => void;
   realtimeSettings?: RealtimeModelSettings;
   chatSettings?: ChatModelSettings;
   onRealtimeSettingsChange?: (settings: RealtimeModelSettings) => void;
@@ -62,10 +65,12 @@ export function VoiceModelView({
   mode,
   pricingConfig,
   isConnected,
+  firstSpeaker,
   onModelChange,
   onVoiceChange,
   onModeChange,
   onPricingChange,
+  onFirstSpeakerChange,
   realtimeSettings = DEFAULT_REALTIME_SETTINGS,
   chatSettings = DEFAULT_CHAT_SETTINGS,
   onRealtimeSettingsChange,
@@ -226,21 +231,41 @@ export function VoiceModelView({
             </div>
 
             {mode === 'voice' && (
-              <div className="space-y-2">
-                <Label htmlFor="voice">Voice</Label>
-                <Select value={selectedVoice} onValueChange={onVoiceChange} disabled={isConnected}>
-                  <SelectTrigger id="voice">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {VOICES.map((v) => (
-                      <SelectItem key={v.value} value={v.value}>
-                        {v.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="voice">Voice</Label>
+                  <Select value={selectedVoice} onValueChange={onVoiceChange} disabled={isConnected}>
+                    <SelectTrigger id="voice">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VOICES.map((v) => (
+                        <SelectItem key={v.value} value={v.value}>
+                          {v.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="first-speaker">Who Speaks First</Label>
+                  <Select value={firstSpeaker} onValueChange={onFirstSpeakerChange} disabled={isConnected}>
+                    <SelectTrigger id="first-speaker">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ai">AI (auto-greet)</SelectItem>
+                      <SelectItem value="human">Human (wait for input)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {firstSpeaker === 'ai' 
+                      ? 'AI will automatically start speaking when the session begins'
+                      : 'Wait for human to speak first before AI responds'}
+                  </p>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

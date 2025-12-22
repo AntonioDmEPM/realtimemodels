@@ -23,10 +23,11 @@ import PricingSettings from '@/components/PricingSettings';
 import SentimentIndicator from '@/components/SentimentIndicator';
 import { useToast } from '@/hooks/use-toast';
 import { ChevronDown } from 'lucide-react';
+import { FirstSpeaker } from '@/utils/webrtcAudio';
 
 interface ConfigSidebarProps {
   // Voice Controls props
-  onStart: (voice: string, model: string) => Promise<void>;
+  onStart: (voice: string, model: string, firstSpeaker: FirstSpeaker) => Promise<void>;
   onStop: () => Promise<void>;
   isConnected: boolean;
   isConnecting: boolean;
