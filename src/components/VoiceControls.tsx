@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { AudioOutputTest } from '@/components/AudioOutputTest';
+import { FirstSpeaker } from '@/utils/webrtcAudio';
 
 interface VoiceControlsProps {
-  onStart: (voice: string, model: string) => void;
+  onStart: (voice: string, model: string, firstSpeaker: FirstSpeaker) => void;
   onStop: () => void;
   isConnected: boolean;
   isConnecting: boolean;
@@ -53,6 +53,9 @@ export default function VoiceControls({
 }: VoiceControlsProps) {
   const [voice, setVoice] = useState('sage');
   const [model, setModel] = useState('gpt-realtime');
+  const [firstSpeaker, setFirstSpeaker] = useState<FirstSpeaker>(() => {
+    return (localStorage.getItem('first_speaker') as FirstSpeaker) || 'human';
+  });
 
   useEffect(() => {
     const savedModel = localStorage.getItem('selected_model');
@@ -89,8 +92,13 @@ export default function VoiceControls({
     handleModelChange(defaultModel);
   };
 
+  const handleFirstSpeakerChange = (value: FirstSpeaker) => {
+    setFirstSpeaker(value);
+    localStorage.setItem('first_speaker', value);
+  };
+
   const handleStart = () => {
-    onStart(voice, model);
+    onStart(voice, model, firstSpeaker);
   };
 
   const getStatusColor = () => {
@@ -141,21 +149,36 @@ export default function VoiceControls({
         </div>
 
         {mode === 'voice' && (
-          <div className="space-y-2">
-            <Label htmlFor="voice">Voice</Label>
-            <Select value={voice} onValueChange={setVoice} disabled={isConnected}>
-              <SelectTrigger id="voice" className="bg-background/50">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {VOICES.map((v) => (
-                  <SelectItem key={v.value} value={v.value}>
-                    {v.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="voice">Voice</Label>
+              <Select value={voice} onValueChange={setVoice} disabled={isConnected}>
+                <SelectTrigger id="voice" className="bg-background/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VOICES.map((v) => (
+                    <SelectItem key={v.value} value={v.value}>
+                      {v.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="first-speaker">Who Speaks First</Label>
+              <Select value={firstSpeaker} onValueChange={handleFirstSpeakerChange} disabled={isConnected}>
+                <SelectTrigger id="first-speaker" className="bg-background/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ai">AI (auto-greet)</SelectItem>
+                  <SelectItem value="human">Human (wait for input)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </>
         )}
 
         <Button
