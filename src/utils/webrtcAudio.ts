@@ -401,35 +401,15 @@ export async function createRealtimeSession(
           turn_detection: eventData.session?.turn_detection?.type
         });
         
-        // If AI speaks first, trigger initial greeting after session is configured
+        // If AI speaks first, trigger initial greeting immediately after session is configured
         if (firstSpeakerConfig.speaker === 'ai' && !textOnly) {
-          console.log('🎤 AI speaks first - triggering initial greeting...');
+          console.log('🎤 AI speaks first - triggering initial greeting immediately...');
           
-          // Send a context message with the greeting instruction if provided
-          if (firstSpeakerConfig.aiGreetingMessage) {
-            const greetingContext = {
-              type: 'conversation.item.create',
-              item: {
-                type: 'message',
-                role: 'user',
-                content: [
-                  {
-                    type: 'input_text',
-                    text: `[SYSTEM: Start the conversation with this greeting: "${firstSpeakerConfig.aiGreetingMessage}"]`
-                  }
-                ]
-              }
-            };
-            dc.send(JSON.stringify(greetingContext));
-            console.log('📤 Sent greeting context:', firstSpeakerConfig.aiGreetingMessage);
+          // Immediately request a response - the greeting is already in the instructions
+          if (dc.readyState === 'open') {
+            dc.send(JSON.stringify({ type: 'response.create' }));
+            console.log('📤 Sent response.create for AI greeting');
           }
-          
-          setTimeout(() => {
-            if (dc.readyState === 'open') {
-              dc.send(JSON.stringify({ type: 'response.create' }));
-              console.log('📤 Sent response.create for AI greeting');
-            }
-          }, 200); // Small delay to ensure session is fully ready
         }
       }
       
@@ -477,8 +457,19 @@ export async function createRealtimeSession(
 
         const normalizedTurnDetection = normalizeTurnDetection(realtimeSettings?.turnDetection);
 
-        // Build instructions with validation awareness
+        // Build instructions with validation awareness and AI greeting
         let finalInstructions = instructions;
+        
+        // Add AI greeting instruction if AI speaks first
+        if (firstSpeakerConfig.speaker === 'ai' && firstSpeakerConfig.aiGreetingMessage) {
+          const greetingAddendum = `
+
+IMPORTANT: You MUST start this conversation immediately with this greeting: "${firstSpeakerConfig.aiGreetingMessage}"
+Do not wait for the user to speak first. Begin the conversation with this greeting.`;
+          finalInstructions = finalInstructions + greetingAddendum;
+          console.log('👋 AI greeting instruction added to instructions');
+        }
+        
         if (validationConfig?.enabled) {
           const validationAddendum = `
 
@@ -490,7 +481,7 @@ Your responses are being validated externally against compliance rules. If you e
 4. Continue the conversation naturally, maintaining high awareness not to repeat the violation
 
 Remember: The validation system is protecting the user and the business. Take it seriously.`;
-          finalInstructions = instructions + validationAddendum;
+          finalInstructions = finalInstructions + validationAddendum;
           console.log('🛡️ Validation awareness added to instructions');
         }
 
