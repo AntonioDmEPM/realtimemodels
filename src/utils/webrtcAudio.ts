@@ -320,6 +320,7 @@ export async function createRealtimeSession(
   });
 
   let sessionCreated = false;
+  let aiGreetingSent = false; // Track if we've already sent the AI greeting
   
   dc.addEventListener('message', (e) => {
     try {
@@ -401,9 +402,10 @@ export async function createRealtimeSession(
           turn_detection: eventData.session?.turn_detection?.type
         });
         
-        // If AI speaks first, trigger initial greeting immediately after session is configured
-        if (firstSpeakerConfig.speaker === 'ai' && !textOnly) {
-          console.log('🎤 AI speaks first - triggering initial greeting immediately...');
+        // If AI speaks first, trigger initial greeting ONCE after session is configured
+        if (firstSpeakerConfig.speaker === 'ai' && !textOnly && !aiGreetingSent) {
+          aiGreetingSent = true; // Prevent duplicate greetings
+          console.log('🎤 AI speaks first - triggering initial greeting (one-time)...');
           
           // Immediately request a response - the greeting is already in the instructions
           if (dc.readyState === 'open') {
