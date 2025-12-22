@@ -118,6 +118,16 @@ export default function Index() {
   const [validationStandardMessage, setValidationStandardMessage] = useState(
     "I apologize, but I need to rephrase my previous response. Let me provide a more appropriate answer."
   );
+  
+  // First speaker setting
+  const [firstSpeaker, setFirstSpeaker] = useState<FirstSpeaker>(() => {
+    return (localStorage.getItem('first_speaker') as FirstSpeaker) || 'human';
+  });
+  
+  const handleFirstSpeakerChange = (value: FirstSpeaker) => {
+    setFirstSpeaker(value);
+    localStorage.setItem('first_speaker', value);
+  };
 
   // Authentication check
   useEffect(() => {
@@ -1236,6 +1246,7 @@ export default function Index() {
             mode={interactionMode}
             pricingConfig={pricingConfig}
             isConnected={isConnected}
+            firstSpeaker={firstSpeaker}
             onModelChange={(model) => {
               if (interactionMode === 'voice') {
                 setSelectedModel(model);
@@ -1246,6 +1257,7 @@ export default function Index() {
             onVoiceChange={setSelectedVoice}
             onModeChange={setInteractionMode}
             onPricingChange={setPricingConfig}
+            onFirstSpeakerChange={handleFirstSpeakerChange}
             realtimeSettings={realtimeSettings}
             chatSettings={chatSettings}
             onRealtimeSettingsChange={setRealtimeSettings}
@@ -1315,7 +1327,7 @@ export default function Index() {
             events={events}
             audioStream={audioStream}
             speakingState={speakingState}
-            onStart={() => startSession(selectedVoice, selectedModel)}
+            onStart={() => startSession(selectedVoice, selectedModel, firstSpeaker)}
             onStop={stopSession}
             onResetAll={resetAll}
             onChatInputChange={setChatInput}
