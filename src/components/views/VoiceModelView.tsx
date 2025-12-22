@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -48,11 +49,13 @@ interface VoiceModelViewProps {
   pricingConfig: PricingConfig;
   isConnected: boolean;
   firstSpeaker: FirstSpeaker;
+  aiGreetingMessage: string;
   onModelChange: (model: string) => void;
   onVoiceChange: (voice: string) => void;
   onModeChange: (mode: 'voice' | 'chat') => void;
   onPricingChange: (pricing: PricingConfig) => void;
   onFirstSpeakerChange: (firstSpeaker: FirstSpeaker) => void;
+  onAiGreetingChange: (message: string) => void;
   realtimeSettings?: RealtimeModelSettings;
   chatSettings?: ChatModelSettings;
   onRealtimeSettingsChange?: (settings: RealtimeModelSettings) => void;
@@ -66,11 +69,13 @@ export function VoiceModelView({
   pricingConfig,
   isConnected,
   firstSpeaker,
+  aiGreetingMessage,
   onModelChange,
   onVoiceChange,
   onModeChange,
   onPricingChange,
   onFirstSpeakerChange,
+  onAiGreetingChange,
   realtimeSettings = DEFAULT_REALTIME_SETTINGS,
   chatSettings = DEFAULT_CHAT_SETTINGS,
   onRealtimeSettingsChange,
@@ -265,6 +270,23 @@ export function VoiceModelView({
                       : 'Wait for human to speak first before AI responds'}
                   </p>
                 </div>
+                
+                {firstSpeaker === 'ai' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-greeting">AI Greeting Message</Label>
+                    <Textarea
+                      id="ai-greeting"
+                      value={aiGreetingMessage}
+                      onChange={(e) => onAiGreetingChange(e.target.value)}
+                      disabled={isConnected}
+                      placeholder="Enter the greeting message the AI should say..."
+                      className="min-h-[80px] resize-none"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This message will guide the AI's initial greeting when the session starts
+                    </p>
+                  </div>
+                )}
               </>
             )}
           </CardContent>

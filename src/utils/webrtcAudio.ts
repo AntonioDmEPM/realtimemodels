@@ -65,6 +65,11 @@ export interface ValidationConfig {
 
 export type FirstSpeaker = 'ai' | 'human';
 
+export interface FirstSpeakerConfig {
+  speaker: FirstSpeaker;
+  aiGreetingMessage?: string;
+}
+
 export async function createRealtimeSession(
   inStream: MediaStream,
   token: string,
@@ -78,7 +83,7 @@ export async function createRealtimeSession(
   realtimeSettings?: any,
   searchEnabled: boolean = true,
   validationConfig?: ValidationConfig,
-  firstSpeaker: FirstSpeaker = 'human'
+  firstSpeakerConfig: FirstSpeakerConfig = { speaker: 'human' }
 ): Promise<{ pc: RTCPeerConnection; dc: RTCDataChannel }> {
   const pc = new RTCPeerConnection();
 
@@ -397,8 +402,28 @@ export async function createRealtimeSession(
         });
         
         // If AI speaks first, trigger initial greeting after session is configured
-        if (firstSpeaker === 'ai' && !textOnly) {
+        if (firstSpeakerConfig.speaker === 'ai' && !textOnly) {
           console.log('🎤 AI speaks first - triggering initial greeting...');
+          
+          // Send a context message with the greeting instruction if provided
+          if (firstSpeakerConfig.aiGreetingMessage) {
+            const greetingContext = {
+              type: 'conversation.item.create',
+              item: {
+                type: 'message',
+                role: 'user',
+                content: [
+                  {
+                    type: 'input_text',
+                    text: `[SYSTEM: Start the conversation with this greeting: "${firstSpeakerConfig.aiGreetingMessage}"]`
+                  }
+                ]
+              }
+            };
+            dc.send(JSON.stringify(greetingContext));
+            console.log('📤 Sent greeting context:', firstSpeakerConfig.aiGreetingMessage);
+          }
+          
           setTimeout(() => {
             if (dc.readyState === 'open') {
               dc.send(JSON.stringify({ type: 'response.create' }));

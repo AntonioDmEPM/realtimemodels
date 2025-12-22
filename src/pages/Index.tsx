@@ -13,7 +13,7 @@ import { KnowledgeBaseView } from '@/components/views/KnowledgeBaseView';
 import { SearchSettingsView } from '@/components/views/SearchSettingsView';
 import { SessionView } from '@/components/views/SessionView';
 import { ValidationSettingsView } from '@/components/views/ValidationSettingsView';
-import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig, ValidationConfig, FirstSpeaker } from '@/utils/webrtcAudio';
+import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig, ValidationConfig, FirstSpeaker, FirstSpeakerConfig } from '@/utils/webrtcAudio';
 import { updateSessionTone } from '@/utils/toneAdapter';
 import { useToast } from '@/hooks/use-toast';
 import { useRingtone } from '@/hooks/useRingtone';
@@ -124,9 +124,18 @@ export default function Index() {
     return (localStorage.getItem('first_speaker') as FirstSpeaker) || 'human';
   });
   
+  const [aiGreetingMessage, setAiGreetingMessage] = useState(() => {
+    return localStorage.getItem('ai_greeting_message') || 'Hello! How can I help you today?';
+  });
+  
   const handleFirstSpeakerChange = (value: FirstSpeaker) => {
     setFirstSpeaker(value);
     localStorage.setItem('first_speaker', value);
+  };
+  
+  const handleAiGreetingChange = (value: string) => {
+    setAiGreetingMessage(value);
+    localStorage.setItem('ai_greeting_message', value);
   };
 
   // Authentication check
@@ -414,6 +423,11 @@ export default function Index() {
           standardMessage: validationStandardMessage
         } : undefined;
         
+        const firstSpeakerConfig: FirstSpeakerConfig = {
+          speaker: firstSpeaker,
+          aiGreetingMessage: firstSpeaker === 'ai' ? aiGreetingMessage : undefined
+        };
+        
         const {
           pc,
           dc
@@ -430,7 +444,7 @@ export default function Index() {
           realtimeSettings,
           isSearchEnabled,
           validationConfig,
-          firstSpeaker
+          firstSpeakerConfig
         );
         
         // Stop ringtone when connected
@@ -1247,6 +1261,7 @@ export default function Index() {
             pricingConfig={pricingConfig}
             isConnected={isConnected}
             firstSpeaker={firstSpeaker}
+            aiGreetingMessage={aiGreetingMessage}
             onModelChange={(model) => {
               if (interactionMode === 'voice') {
                 setSelectedModel(model);
@@ -1258,6 +1273,7 @@ export default function Index() {
             onModeChange={setInteractionMode}
             onPricingChange={setPricingConfig}
             onFirstSpeakerChange={handleFirstSpeakerChange}
+            onAiGreetingChange={handleAiGreetingChange}
             realtimeSettings={realtimeSettings}
             chatSettings={chatSettings}
             onRealtimeSettingsChange={setRealtimeSettings}
