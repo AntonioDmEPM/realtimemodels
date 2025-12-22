@@ -13,7 +13,7 @@ import { KnowledgeBaseView } from '@/components/views/KnowledgeBaseView';
 import { SearchSettingsView } from '@/components/views/SearchSettingsView';
 import { SessionView } from '@/components/views/SessionView';
 import { ValidationSettingsView } from '@/components/views/ValidationSettingsView';
-import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig, ValidationConfig } from '@/utils/webrtcAudio';
+import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig, ValidationConfig, FirstSpeaker } from '@/utils/webrtcAudio';
 import { updateSessionTone } from '@/utils/toneAdapter';
 import { useToast } from '@/hooks/use-toast';
 import { useRingtone } from '@/hooks/useRingtone';
@@ -328,7 +328,7 @@ export default function Index() {
       }
     }
   };
-  const startSession = async (voice: string, model: string) => {
+  const startSession = async (voice: string, model: string, firstSpeaker: FirstSpeaker = 'human') => {
     // Prevent double-click
     if (isConnecting || isConnected) {
       console.log('Session already starting or connected, ignoring duplicate call');
@@ -419,7 +419,8 @@ export default function Index() {
           false, 
           realtimeSettings,
           isSearchEnabled,
-          validationConfig
+          validationConfig,
+          firstSpeaker
         );
         
         // Stop ringtone when connected

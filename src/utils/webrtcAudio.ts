@@ -63,6 +63,8 @@ export interface ValidationConfig {
   standardMessage: string;
 }
 
+export type FirstSpeaker = 'ai' | 'human';
+
 export async function createRealtimeSession(
   inStream: MediaStream,
   token: string,
@@ -75,7 +77,8 @@ export async function createRealtimeSession(
   textOnly: boolean = false,
   realtimeSettings?: any,
   searchEnabled: boolean = true,
-  validationConfig?: ValidationConfig
+  validationConfig?: ValidationConfig,
+  firstSpeaker: FirstSpeaker = 'human'
 ): Promise<{ pc: RTCPeerConnection; dc: RTCDataChannel }> {
   const pc = new RTCPeerConnection();
 
@@ -392,6 +395,17 @@ export async function createRealtimeSession(
           input_audio_transcription: eventData.session?.input_audio_transcription,
           turn_detection: eventData.session?.turn_detection?.type
         });
+        
+        // If AI speaks first, trigger initial greeting after session is configured
+        if (firstSpeaker === 'ai' && !textOnly) {
+          console.log('🎤 AI speaks first - triggering initial greeting...');
+          setTimeout(() => {
+            if (dc.readyState === 'open') {
+              dc.send(JSON.stringify({ type: 'response.create' }));
+              console.log('📤 Sent response.create for AI greeting');
+            }
+          }, 200); // Small delay to ensure session is fully ready
+        }
       }
       
       // Send session.update with instructions after receiving session.created
