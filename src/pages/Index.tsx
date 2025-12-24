@@ -1373,7 +1373,7 @@ export default function Index() {
 
         {/* Main Content Area */}
         <SidebarInset className="flex-1">
-          <div className="h-screen flex flex-col">
+          <div className="min-h-screen flex flex-col">
             {/* Header */}
             <header className="border-b p-4 flex-shrink-0">
               <div className="flex items-center justify-between">
@@ -1391,9 +1391,9 @@ export default function Index() {
             </header>
 
             {/* View Content */}
-            <div className="flex-1 overflow-hidden">
+            <main className="flex-1">
               {renderView()}
-            </div>
+            </main>
           </div>
         </SidebarInset>
       </div>
