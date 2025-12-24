@@ -85,7 +85,7 @@ export function HorizontalAnalyticsPanel({
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <div className="h-[220px] min-w-0">
+              <div className="min-w-0">
                 <TokenDashboard
                   dataPoints={tokenDataPoints}
                   sessionStartTime={sessionStartTime}
@@ -106,7 +106,7 @@ export function HorizontalAnalyticsPanel({
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <div className="h-[240px] overflow-hidden">
+              <div className="min-w-0">
                 <EventLog events={events} />
               </div>
             </CardContent>
