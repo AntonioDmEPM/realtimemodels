@@ -1,10 +1,4 @@
 import { BarChart3, Activity, TrendingUp } from 'lucide-react';
-import { ChevronDown } from 'lucide-react';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import StatsDisplay from '@/components/StatsDisplay';
@@ -48,97 +42,76 @@ export function HorizontalAnalyticsPanel({
       <ScrollArea className="flex-1 max-h-[400px]">
         <div className="p-4 space-y-4">
           {/* Session Stats */}
-          <Collapsible defaultOpen className="group/collapsible">
-            <Card className="w-full">
-              <CardHeader className="pb-2 px-4 pt-4">
-                <CollapsibleTrigger className="flex w-full items-center justify-between hover:opacity-80">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Activity className="h-4 w-4 flex-shrink-0" />
-                    <span>Session Stats</span>
-                  </CardTitle>
-                  <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                </CollapsibleTrigger>
-              </CardHeader>
-              <CollapsibleContent>
-                <CardContent className="px-4 pb-4">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2">Recent</p>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <span className="text-muted-foreground">Input:</span>
-                        <span className="font-mono">{(currentStats.audioInputTokens + currentStats.textInputTokens).toLocaleString()}</span>
-                        <span className="text-muted-foreground">Output:</span>
-                        <span className="font-mono">{(currentStats.audioOutputTokens + currentStats.textOutputTokens).toLocaleString()}</span>
-                        <span className="text-muted-foreground">Cost:</span>
-                        <span className="font-mono text-primary">${currentStats.totalCost.toFixed(4)}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2">Session Total</p>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <span className="text-muted-foreground">Input:</span>
-                        <span className="font-mono">{(sessionStats.audioInputTokens + sessionStats.textInputTokens).toLocaleString()}</span>
-                        <span className="text-muted-foreground">Output:</span>
-                        <span className="font-mono">{(sessionStats.audioOutputTokens + sessionStats.textOutputTokens).toLocaleString()}</span>
-                        <span className="text-muted-foreground">Cost:</span>
-                        <span className="font-mono text-primary">${sessionStats.totalCost.toFixed(4)}</span>
-                      </div>
-                    </div>
+          <Card className="w-full">
+            <CardHeader className="pb-2 px-4 pt-4">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Activity className="h-4 w-4 flex-shrink-0" />
+                <span>Session Stats</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Recent</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <span className="text-muted-foreground">Input:</span>
+                    <span className="font-mono">{(currentStats.audioInputTokens + currentStats.textInputTokens).toLocaleString()}</span>
+                    <span className="text-muted-foreground">Output:</span>
+                    <span className="font-mono">{(currentStats.audioOutputTokens + currentStats.textOutputTokens).toLocaleString()}</span>
+                    <span className="text-muted-foreground">Cost:</span>
+                    <span className="font-mono text-primary">${currentStats.totalCost.toFixed(4)}</span>
                   </div>
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Session Total</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <span className="text-muted-foreground">Input:</span>
+                    <span className="font-mono">{(sessionStats.audioInputTokens + sessionStats.textInputTokens).toLocaleString()}</span>
+                    <span className="text-muted-foreground">Output:</span>
+                    <span className="font-mono">{(sessionStats.audioOutputTokens + sessionStats.textOutputTokens).toLocaleString()}</span>
+                    <span className="text-muted-foreground">Cost:</span>
+                    <span className="font-mono text-primary">${sessionStats.totalCost.toFixed(4)}</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Token Dashboard */}
-          <Collapsible defaultOpen className="group/collapsible">
-            <Card className="w-full">
-              <CardHeader className="pb-2 px-4 pt-4">
-                <CollapsibleTrigger className="flex w-full items-center justify-between hover:opacity-80">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 flex-shrink-0" />
-                    <span>Token Usage</span>
-                  </CardTitle>
-                  <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                </CollapsibleTrigger>
-              </CardHeader>
-              <CollapsibleContent>
-                <CardContent className="px-4 pb-4">
-                  <div className="h-[180px]">
-                    <TokenDashboard
-                      dataPoints={tokenDataPoints}
-                      sessionStartTime={sessionStartTime}
-                      isActive={isActive}
-                      totalInputTokens={totalInputTokens}
-                      totalOutputTokens={totalOutputTokens}
-                    />
-                  </div>
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
+          <Card className="w-full">
+            <CardHeader className="pb-2 px-4 pt-4">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 flex-shrink-0" />
+                <span>Token Usage</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="h-[180px]">
+                <TokenDashboard
+                  dataPoints={tokenDataPoints}
+                  sessionStartTime={sessionStartTime}
+                  isActive={isActive}
+                  totalInputTokens={totalInputTokens}
+                  totalOutputTokens={totalOutputTokens}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Event Log */}
-          <Collapsible defaultOpen className="group/collapsible">
-            <Card className="w-full">
-              <CardHeader className="pb-2 px-4 pt-4">
-                <CollapsibleTrigger className="flex w-full items-center justify-between hover:opacity-80">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Activity className="h-4 w-4 flex-shrink-0" />
-                    <span>Event Log</span>
-                  </CardTitle>
-                  <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                </CollapsibleTrigger>
-              </CardHeader>
-              <CollapsibleContent>
-                <CardContent className="px-4 pb-4">
-                  <div className="h-[200px] overflow-hidden">
-                    <EventLog events={events} />
-                  </div>
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
+          <Card className="w-full">
+            <CardHeader className="pb-2 px-4 pt-4">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Activity className="h-4 w-4 flex-shrink-0" />
+                <span>Event Log</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="h-[200px] overflow-hidden">
+                <EventLog events={events} />
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </ScrollArea>
     </div>
