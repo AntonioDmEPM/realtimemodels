@@ -251,12 +251,9 @@ export default function ConversationMessages({ events }: ConversationMessagesPro
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b p-4">
-        <h3 className="font-semibold">Conversation</h3>
-      </div>
       <div ref={scrollRef} className="flex-1 p-4 overflow-y-auto">
         {messages.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8">
+          <div className="text-center text-muted-foreground py-16">
             No conversation yet. Start a session to see messages here.
           </div>
         ) : (

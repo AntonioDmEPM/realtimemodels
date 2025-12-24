@@ -1,17 +1,15 @@
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Loader2, Search } from 'lucide-react';
+import { Send, Search } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import VoiceVisualizer from '@/components/VoiceVisualizer';
-import ConversationTimer from '@/components/ConversationTimer';
-import SentimentIndicator from '@/components/SentimentIndicator';
+import CompactVoiceVisualizer from '@/components/CompactVoiceVisualizer';
+import CompactSentiment from '@/components/CompactSentiment';
+import CompactCostIndicator from '@/components/CompactCostIndicator';
+import CompactTimer from '@/components/CompactTimer';
 import ConversationMessages from '@/components/ConversationMessages';
-import { AnalyticsPanel } from '@/components/AnalyticsPanel';
+import { HorizontalAnalyticsPanel } from '@/components/HorizontalAnalyticsPanel';
 import { SessionStats } from '@/utils/webrtcAudio';
 import { TokenDataPoint } from '@/components/TokenDashboard';
-import { Skeleton } from '@/components/ui/skeleton';
 
 interface EventEntry {
   timestamp: string;
@@ -73,9 +71,10 @@ export function SessionView({
 }: SessionViewProps) {
   return (
     <div className="h-full flex flex-col">
-      {/* Session Controls - Compact header */}
-      <div className="border-b p-3">
-        <div className="flex items-center justify-between gap-4">
+      {/* TOP BAR - Controls, Visualizer, Sentiment, Cost, Timer */}
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex items-center justify-between gap-4 p-3">
+          {/* Left: Controls */}
           <div className="flex items-center gap-3">
             {mode === 'voice' && (
               <>
@@ -84,6 +83,7 @@ export function SessionView({
                   variant={isConnected ? 'destructive' : 'default'}
                   size="sm"
                   disabled={isConnecting}
+                  className="min-w-[80px]"
                 >
                   {isConnecting ? 'Connecting...' : isConnected ? 'Stop' : 'Start'}
                 </Button>
@@ -98,105 +98,81 @@ export function SessionView({
               </Button>
             )}
           </div>
-          
-          <div className="flex items-center gap-4">
+
+          {/* Center: Voice Visualizer (only in voice mode) */}
+          {mode === 'voice' && (
+            <CompactVoiceVisualizer
+              inputStream={audioStream}
+              isConnected={isConnected}
+              isSpeaking={speakingState}
+            />
+          )}
+
+          {/* Right: Sentiment, Cost, Timer */}
+          <div className="flex items-center gap-2">
+            <CompactSentiment sentiment={currentSentiment} />
+            <CompactCostIndicator stats={sessionStats} />
             {mode === 'voice' && (
-              <ConversationTimer
-                startTime={sessionStartTime}
+              <CompactTimer
                 isActive={isConnected}
+                startTime={sessionStartTime}
               />
             )}
-            {mode === 'chat' && (
-              <span className="text-sm text-muted-foreground">
-                Chat Mode
-              </span>
+            {isSearching && (
+              <div className="flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground animate-pulse">
+                <Search className="h-3 w-3 animate-spin" />
+                <span>Searching...</span>
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      <ResizablePanelGroup direction="horizontal" className="flex-1">
-        {/* LEFT SIDE - Visualizer & Conversation */}
-        <ResizablePanel defaultSize={55} minSize={30}>
-          <div className="h-full flex flex-col overflow-hidden">
-            {/* Voice Visualizer - Central and prominent */}
-            {mode === 'voice' && (
-              <div className="flex-shrink-0 flex flex-col items-center justify-center py-6 border-b bg-gradient-to-b from-background to-muted/20">
-                <VoiceVisualizer
-                  inputStream={audioStream}
-                  isConnected={isConnected}
-                  isSpeaking={speakingState}
-                  size={180}
-                />
-              </div>
-            )}
-            
-            {/* Sentiment Indicator & Search Progress */}
-            <div className="border-b p-3 flex items-center justify-between">
-              <SentimentIndicator sentiment={currentSentiment} />
-              {isSearching && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
-                  <Search className="h-4 w-4 animate-spin" />
-                  <span>Searching the web...</span>
-                </div>
-              )}
+      {/* MAIN AREA - Full-width Conversation */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <ScrollArea className="flex-1">
+          <ConversationMessages events={events} />
+        </ScrollArea>
+
+        {/* Chat Input (for chat mode) */}
+        {mode === 'chat' && (
+          <div className="border-t p-4 bg-background">
+            <div className="flex gap-2 max-w-3xl mx-auto">
+              <Input
+                value={chatInput}
+                onChange={(e) => onChatInputChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    onSendMessage();
+                  }
+                }}
+                placeholder="Type your message..."
+                className="flex-1"
+              />
+              <Button
+                onClick={onSendMessage}
+                disabled={!chatInput.trim()}
+                size="icon"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
             </div>
-            
-            {/* Conversation - Scrollable area */}
-            <ScrollArea className="flex-1">
-              <ConversationMessages events={events} />
-            </ScrollArea>
-
-            {/* Chat Input (for chat mode) */}
-            {mode === 'chat' && (
-              <div className="border-t p-4">
-                <div className="flex gap-2">
-                  <Input
-                    value={chatInput}
-                    onChange={(e) => onChatInputChange(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        onSendMessage();
-                      }
-                    }}
-                    placeholder="Type your message..."
-                  />
-                  <Button
-                    onClick={onSendMessage}
-                    disabled={!chatInput.trim()}
-                    size="icon"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
           </div>
-        </ResizablePanel>
+        )}
+      </div>
 
-        <ResizableHandle withHandle />
-
-        {/* RIGHT SIDE - Analytics */}
-        <ResizablePanel defaultSize={45} minSize={25}>
-          <div className="h-full flex flex-col overflow-hidden">
-            <ScrollArea className="flex-1 p-4">
-              <div className="space-y-4">
-                <AnalyticsPanel
-                  currentStats={currentStats}
-                  sessionStats={sessionStats}
-                  tokenDataPoints={tokenDataPoints}
-                  sessionStartTime={sessionStartTime}
-                  isActive={isConnected}
-                  totalInputTokens={totalInputTokens}
-                  totalOutputTokens={totalOutputTokens}
-                  events={events}
-                />
-              </div>
-            </ScrollArea>
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+      {/* BOTTOM - Analytics Panel (always visible) */}
+      <HorizontalAnalyticsPanel
+        currentStats={currentStats}
+        sessionStats={sessionStats}
+        tokenDataPoints={tokenDataPoints}
+        sessionStartTime={sessionStartTime}
+        isActive={isConnected}
+        totalInputTokens={totalInputTokens}
+        totalOutputTokens={totalOutputTokens}
+        events={events}
+      />
     </div>
   );
 }
