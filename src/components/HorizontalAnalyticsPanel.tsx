@@ -1,7 +1,5 @@
 import { BarChart3, Activity, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import StatsDisplay from '@/components/StatsDisplay';
 import TokenDashboard, { TokenDataPoint } from '@/components/TokenDashboard';
 import EventLog from '@/components/EventLog';
 import { SessionStats } from '@/utils/webrtcAudio';
@@ -33,14 +31,13 @@ export function HorizontalAnalyticsPanel({
   events,
 }: HorizontalAnalyticsPanelProps) {
   return (
-    <div className="border-t bg-muted/30 flex flex-col">
+    <div className="border-t bg-muted/30">
       <div className="p-3 border-b flex items-center gap-2">
         <BarChart3 className="h-4 w-4" />
         <h3 className="text-sm font-semibold">Analytics</h3>
       </div>
       
-      <ScrollArea className="flex-1 max-h-[400px]">
-        <div className="p-4 space-y-4">
+      <div className="p-4 flex flex-col gap-4">
           {/* Session Stats */}
           <Card className="w-full">
             <CardHeader className="pb-2 px-4 pt-4">
@@ -111,9 +108,8 @@ export function HorizontalAnalyticsPanel({
                 <EventLog events={events} />
               </div>
             </CardContent>
-          </Card>
-        </div>
-      </ScrollArea>
+        </Card>
+      </div>
     </div>
   );
 }
