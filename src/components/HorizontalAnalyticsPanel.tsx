@@ -1,5 +1,6 @@
 import { BarChart3, Activity, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import TokenDashboard, { TokenDataPoint } from '@/components/TokenDashboard';
 import EventLog from '@/components/EventLog';
 import { SessionStats } from '@/utils/webrtcAudio';
@@ -31,15 +32,16 @@ export function HorizontalAnalyticsPanel({
   events,
 }: HorizontalAnalyticsPanelProps) {
   return (
-    <div className="border-t bg-muted/30">
+    <div className="border-t bg-muted/30 flex flex-col h-[40vh] min-h-[320px] min-w-0">
       <div className="p-3 border-b flex items-center gap-2">
         <BarChart3 className="h-4 w-4" />
         <h3 className="text-sm font-semibold">Analytics</h3>
       </div>
-      
-      <div className="p-4 flex flex-col gap-4">
+
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="p-4 flex flex-col gap-4 min-w-0">
           {/* Session Stats */}
-          <Card className="w-full">
+          <Card className="w-full min-w-0">
             <CardHeader className="pb-2 px-4 pt-4">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Activity className="h-4 w-4 flex-shrink-0" />
@@ -47,7 +49,7 @@ export function HorizontalAnalyticsPanel({
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-2">Recent</p>
                   <div className="grid grid-cols-2 gap-2 text-sm">
@@ -75,7 +77,7 @@ export function HorizontalAnalyticsPanel({
           </Card>
 
           {/* Token Dashboard */}
-          <Card className="w-full">
+          <Card className="w-full min-w-0">
             <CardHeader className="pb-2 px-4 pt-4">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 flex-shrink-0" />
@@ -83,7 +85,7 @@ export function HorizontalAnalyticsPanel({
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <div className="h-[180px]">
+              <div className="h-[220px] min-w-0">
                 <TokenDashboard
                   dataPoints={tokenDataPoints}
                   sessionStartTime={sessionStartTime}
@@ -96,7 +98,7 @@ export function HorizontalAnalyticsPanel({
           </Card>
 
           {/* Event Log */}
-          <Card className="w-full">
+          <Card className="w-full min-w-0">
             <CardHeader className="pb-2 px-4 pt-4">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Activity className="h-4 w-4 flex-shrink-0" />
@@ -104,12 +106,13 @@ export function HorizontalAnalyticsPanel({
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <div className="h-[200px] overflow-hidden">
+              <div className="h-[240px] overflow-hidden">
                 <EventLog events={events} />
               </div>
             </CardContent>
-        </Card>
-      </div>
+          </Card>
+        </div>
+      </ScrollArea>
     </div>
   );
 }
