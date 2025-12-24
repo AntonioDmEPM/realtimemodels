@@ -70,7 +70,7 @@ export function SessionView({
   onSendMessage,
 }: SessionViewProps) {
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex flex-col">
       {/* TOP BAR - Controls, Visualizer, Sentiment, Cost, Timer */}
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center justify-between gap-4 p-3">
@@ -113,10 +113,7 @@ export function SessionView({
             <CompactSentiment sentiment={currentSentiment} />
             <CompactCostIndicator stats={sessionStats} />
             {mode === 'voice' && (
-              <CompactTimer
-                isActive={isConnected}
-                startTime={sessionStartTime}
-              />
+              <CompactTimer isActive={isConnected} startTime={sessionStartTime} />
             )}
             {isSearching && (
               <div className="flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground animate-pulse">
@@ -128,15 +125,17 @@ export function SessionView({
         </div>
       </div>
 
-      {/* MAIN AREA - Full-width Conversation */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <ScrollArea className="flex-1 min-h-0">
-          <ConversationMessages events={events} />
-        </ScrollArea>
+      {/* Conversation (scrollable) */}
+      <section className="p-4">
+        <div className="h-[60vh] min-h-[360px] max-h-[70vh] rounded-md border bg-background">
+          <ScrollArea className="h-full">
+            <ConversationMessages events={events} />
+          </ScrollArea>
+        </div>
 
         {/* Chat Input (for chat mode) */}
         {mode === 'chat' && (
-          <div className="border-t p-4 bg-background">
+          <div className="mt-4 bg-background">
             <div className="flex gap-2 max-w-3xl mx-auto">
               <Input
                 value={chatInput}
@@ -150,29 +149,27 @@ export function SessionView({
                 placeholder="Type your message..."
                 className="flex-1"
               />
-              <Button
-                onClick={onSendMessage}
-                disabled={!chatInput.trim()}
-                size="icon"
-              >
+              <Button onClick={onSendMessage} disabled={!chatInput.trim()} size="icon">
                 <Send className="h-4 w-4" />
               </Button>
             </div>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* BOTTOM - Analytics Panel (always visible) */}
-      <HorizontalAnalyticsPanel
-        currentStats={currentStats}
-        sessionStats={sessionStats}
-        tokenDataPoints={tokenDataPoints}
-        sessionStartTime={sessionStartTime}
-        isActive={isConnected}
-        totalInputTokens={totalInputTokens}
-        totalOutputTokens={totalOutputTokens}
-        events={events}
-      />
+      {/* Analytics (page-scrollable, not internally scrollable) */}
+      <section>
+        <HorizontalAnalyticsPanel
+          currentStats={currentStats}
+          sessionStats={sessionStats}
+          tokenDataPoints={tokenDataPoints}
+          sessionStartTime={sessionStartTime}
+          isActive={isConnected}
+          totalInputTokens={totalInputTokens}
+          totalOutputTokens={totalOutputTokens}
+          events={events}
+        />
+      </section>
     </div>
   );
 }
