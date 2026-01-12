@@ -15,11 +15,13 @@
     "jsx": "react-jsx",
 
     /* Linting */
-    "strict": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noImplicitAny": false,
-    "noFallthroughCasesInSwitch": false,
+    "strict": false,  // TODO: Enable incrementally
+    "noUnusedLocals": true,  // Enabled: Helps identify dead code
+    "noUnusedParameters": false,  // TODO: Enable after refactoring
+    "noImplicitAny": true,  // Enabled: Important for type safety
+    "noFallthroughCasesInSwitch": true,  // Enabled: Prevents common bugs
+    "forceConsistentCasingInFileNames": true,  // Enabled: Prevents cross-platform issues
+    "noImplicitReturns": true,  // Enabled: Ensures all code paths return
 
     "baseUrl": ".",
     "paths": {
