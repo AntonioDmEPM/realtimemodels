@@ -385,6 +385,12 @@ export async function createRealtimeSession(
                 gainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
               }
             }
+          }).catch(error => {
+            console.error('❌ Unexpected error during transcript validation:', error);
+            // Continue audio playback on error (fail open)
+            if (gainNode && audioContext) {
+              gainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
+            }
           });
         }
         
