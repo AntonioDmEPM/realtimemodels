@@ -57,9 +57,9 @@ describe('calculateCosts', () => {
 
     const result = calculateCosts(stats, defaultPricing);
 
-    expect(result.inputCost).toBe(1000 * 0.00006);
-    expect(result.outputCost).toBe(500 * 0.00024);
-    expect(result.totalCost).toBe(0.06 + 0.12);
+    expect(result.inputCost).toBeCloseTo(1000 * 0.00006, 5);
+    expect(result.outputCost).toBeCloseTo(500 * 0.00024, 5);
+    expect(result.totalCost).toBeCloseTo(0.18, 5);
   });
 
   it('should handle only text tokens', () => {
@@ -89,9 +89,9 @@ describe('calculateCosts', () => {
 
     const result = calculateCosts(stats, defaultPricing);
 
-    expect(result.inputCost).toBe(1000 * 0.00003);
+    expect(result.inputCost).toBeCloseTo(1000 * 0.00003, 5);
     expect(result.outputCost).toBe(0);
-    expect(result.totalCost).toBe(0.03);
+    expect(result.totalCost).toBeCloseTo(0.03, 5);
   });
 
   it('should use custom pricing configuration', () => {
