@@ -53,47 +53,65 @@ export default function SessionManager({
   }, []);
 
   const loadSessions = async () => {
-    const { data, error } = await supabase
-      .from('sessions')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error loading sessions:', error);
+      if (error) {
+        console.error('Error loading sessions:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load sessions',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setSessions((data || []) as unknown as SavedSession[]);
+    } catch (error) {
+      console.error('Unexpected error loading sessions:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load sessions',
+        description: 'An unexpected error occurred while loading sessions',
         variant: 'destructive',
       });
-      return;
     }
-
-    setSessions((data || []) as unknown as SavedSession[]);
   };
 
   const deleteSession = async (id: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    const { error } = await supabase
-      .from('sessions')
-      .delete()
-      .eq('id', id);
+    try {
+      const { error } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('id', id);
 
-    if (error) {
-      console.error('Error deleting session:', error);
+      if (error) {
+        console.error('Error deleting session:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to delete session',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Session deleted successfully',
+      });
+
+      loadSessions();
+    } catch (error) {
+      console.error('Unexpected error deleting session:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete session',
+        description: 'An unexpected error occurred while deleting the session',
         variant: 'destructive',
       });
-      return;
     }
-
-    toast({
-      title: 'Success',
-      description: 'Session deleted successfully',
-    });
-
-    loadSessions();
   };
 
   const loadSession = (session: SavedSession) => {

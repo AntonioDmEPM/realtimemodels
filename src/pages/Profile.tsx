@@ -78,12 +78,17 @@ export default function Profile() {
   }, []);
 
   const checkAuth = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
+      setUserEmail(user.email || '');
+    } catch (error) {
+      console.error('Error checking authentication:', error);
       navigate('/auth');
-      return;
     }
-    setUserEmail(user.email || '');
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {

@@ -161,6 +161,9 @@ export default function Index() {
       if (!authSession) {
         navigate('/auth');
       }
+    }).catch(error => {
+      console.error('Error getting session:', error);
+      navigate('/auth');
     });
     return () => subscription.unsubscribe();
   }, [navigate]);
