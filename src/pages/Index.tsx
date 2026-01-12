@@ -15,6 +15,7 @@ import { SessionView } from '@/components/views/SessionView';
 import { ValidationSettingsView } from '@/components/views/ValidationSettingsView';
 import { createRealtimeSession, AudioVisualizer, calculateCosts, SessionStats, UsageEvent, PricingConfig, ValidationConfig, FirstSpeaker, FirstSpeakerConfig } from '@/utils/webrtcAudio';
 import { updateSessionTone } from '@/utils/toneAdapter';
+import { logger } from '@/utils/logger';
 import { useToast } from '@/hooks/use-toast';
 import { useRingtone } from '@/hooks/useRingtone';
 import { useBellSound } from '@/hooks/useBellSound';
@@ -162,7 +163,7 @@ export default function Index() {
         navigate('/auth');
       }
     }).catch(error => {
-      console.error('Error getting session:', error);
+      logger.error('Error getting session:', error);
       navigate('/auth');
     });
     return () => subscription.unsubscribe();
@@ -171,7 +172,7 @@ export default function Index() {
   // Effect to update session tone when sentiment changes (Step 2: Tone Adaptation)
   useEffect(() => {
     if (isConnected && dataChannel && currentSentiment && adaptiveTone) {
-      console.log('Adapting tone based on sentiment:', currentSentiment.sentiment);
+      logger.log('Adapting tone based on sentiment:', currentSentiment.sentiment);
       updateSessionTone(dataChannel, botPrompt, currentSentiment.sentiment, adaptiveTone);
     }
   }, [currentSentiment, adaptiveTone, dataChannel, isConnected, botPrompt]);
@@ -194,11 +195,11 @@ export default function Index() {
     // Handle search progress events
     if (eventData.type === 'web_search.request') {
       setIsSearching(true);
-      console.log('🔍 Search started:', eventData.query);
+      logger.log('🔍 Search started:', eventData.query);
     } else if (eventData.type === 'web_search.results' || eventData.type === 'knowledge_base.search_results') {
       setIsSearching(false);
       playBell(); // Play bell sound when search completes
-      console.log('✅ Search completed');
+      logger.log('✅ Search completed');
     }
     
     // Handle sentiment detection events
@@ -209,7 +210,7 @@ export default function Index() {
         reason: eventData.reason
       };
       setCurrentSentiment(sentimentData);
-      console.log('Sentiment detected:', sentimentData);
+      logger.log('Sentiment detected:', sentimentData);
     }
 
     // Track timeline segments and speaking state
@@ -260,19 +261,19 @@ export default function Index() {
       }
     }
     if (eventData.type === 'response.done' && eventData.response?.usage) {
-      console.log('=== RESPONSE.DONE EVENT ===');
-      console.log('Full event:', JSON.stringify(eventData, null, 2));
+      logger.log('=== RESPONSE.DONE EVENT ===');
+      logger.log('Full event:', JSON.stringify(eventData, null, 2));
       const usage = eventData.response.usage;
-      console.log('Usage object:', usage);
+      logger.log('Usage object:', usage);
       const inputDetails = usage.input_token_details;
       const outputDetails = usage.output_token_details;
       const cachedDetails = inputDetails.cached_tokens_details || {
         audio_tokens: 0,
         text_tokens: 0
       };
-      console.log('Input details:', inputDetails);
-      console.log('Output details:', outputDetails);
-      console.log('Cached details:', cachedDetails);
+      logger.log('Input details:', inputDetails);
+      logger.log('Output details:', outputDetails);
+      logger.log('Cached details:', cachedDetails);
       const newStats = {
         audioInputTokens: inputDetails.audio_tokens - cachedDetails.audio_tokens,
         textInputTokens: inputDetails.text_tokens - cachedDetails.text_tokens,
@@ -280,7 +281,7 @@ export default function Index() {
         audioOutputTokens: outputDetails.audio_tokens,
         textOutputTokens: outputDetails.text_tokens
       };
-      console.log('Calculated newStats:', newStats);
+      logger.log('Calculated newStats:', newStats);
       const costs = calculateCosts(newStats, pricingConfig);
       const fullStats = {
         ...newStats,
@@ -312,17 +313,17 @@ export default function Index() {
           outputCost: prev.outputCost + costs.outputCost,
           totalCost: prev.totalCost + costs.totalCost
         };
-        console.log('Previous session stats:', prev);
-        console.log('Updated session stats:', updated);
+        logger.log('Previous session stats:', prev);
+        logger.log('Updated session stats:', updated);
         return updated;
       });
 
       // Track token data points for dashboard
-      console.log('Checking if should add data point. sessionStartTimeRef:', sessionStartTimeRef.current);
+      logger.log('Checking if should add data point. sessionStartTimeRef:', sessionStartTimeRef.current);
       if (sessionStartTimeRef.current) {
         const totalInput = newStats.audioInputTokens + newStats.textInputTokens;
         const totalOutput = newStats.audioOutputTokens + newStats.textOutputTokens;
-        console.log('Adding data point - totalInput:', totalInput, 'totalOutput:', totalOutput);
+        logger.log('Adding data point - totalInput:', totalInput, 'totalOutput:', totalOutput);
         setCumulativeTokens(prev => {
           const newCumulativeInput = prev.input + totalInput;
           const newCumulativeOutput = prev.output + totalOutput;
@@ -334,10 +335,10 @@ export default function Index() {
             cumulativeInput: newCumulativeInput,
             cumulativeOutput: newCumulativeOutput
           };
-          console.log('Created data point:', dataPoint);
+          logger.log('Created data point:', dataPoint);
           setTokenDataPoints(prevPoints => {
             const updated = [...prevPoints, dataPoint];
-            console.log('Updated tokenDataPoints array length:', updated.length);
+            logger.log('Updated tokenDataPoints array length:', updated.length);
             return updated;
           });
           return {
@@ -346,14 +347,14 @@ export default function Index() {
           };
         });
       } else {
-        console.log('NOT adding data point - sessionStartTimeRef is null');
+        logger.log('NOT adding data point - sessionStartTimeRef is null');
       }
     }
   };
   const startSession = async (voice: string, model: string, firstSpeaker: FirstSpeaker = 'human') => {
     // Prevent double-click
     if (isConnecting || isConnected) {
-      console.log('Session already starting or connected, ignoring duplicate call');
+      logger.log('Session already starting or connected, ignoring duplicate call');
       return;
     }
     
@@ -412,7 +413,7 @@ export default function Index() {
         setAudioVisualizer(visualizer);
         setStatusMessage('Establishing connection...');
         const supabaseToken = session?.access_token;
-        console.log('Starting realtime session with Supabase token:', supabaseToken ? 'Present' : 'MISSING');
+        logger.log('Starting realtime session with Supabase token:', supabaseToken ? 'Present' : 'MISSING');
         if (!supabaseToken) {
           throw new Error('User session token not available. Please refresh the page.');
         }
@@ -495,7 +496,7 @@ export default function Index() {
       }
       
       setStatusMessage(`Error: ${errorMessage}`);
-      console.error('Session error:', err);
+      logger.error('Session error:', err);
       stopSession();
       toast({
         title: errorTitle,
@@ -528,7 +529,7 @@ export default function Index() {
         error
       } = await supabase.from('sessions').insert([sessionData]);
       if (error) {
-        console.error('Error auto-saving session:', error);
+        logger.error('Error auto-saving session:', error);
       } else {
         toast({
           title: 'Session Saved',
@@ -591,9 +592,9 @@ export default function Index() {
         dataChannel.send(JSON.stringify({
           type: 'response.create'
         }));
-        console.log('Sent text message via WebRTC:', message);
+        logger.log('Sent text message via WebRTC:', message);
       } catch (error) {
-        console.error('Error sending message:', error);
+        logger.error('Error sending message:', error);
         toast({
           title: 'Send Failed',
           description: 'Failed to send message. Please try again.',
@@ -646,14 +647,14 @@ export default function Index() {
         
         // Check if AI is requesting a tool call (web search)
         if (data.requires_tool && data.tool_name === 'web_search' && data.tool_arguments) {
-          console.log('AI requested web search:', data.tool_arguments);
-          console.log('Search types enabled:', searchTypes);
-          console.log('Search service:', searchService);
+          logger.log('AI requested web search:', data.tool_arguments);
+          logger.log('Search types enabled:', searchTypes);
+          logger.log('Search service:', searchService);
           
           // Get the tool call ID from the response
           const toolCallId = data.choices[0]?.message?.tool_calls?.[0]?.id;
           if (!toolCallId) {
-            console.error('No tool_call_id found in response');
+            logger.error('No tool_call_id found in response');
             toast({
               title: 'Error',
               description: 'Invalid tool call response',
@@ -669,12 +670,12 @@ export default function Index() {
           
           // If no search type enabled or only shopping/amazon/maps, fallback to web
           const activeSearchTypes = enabledSearchTypes.length === 0 ? ['web'] : enabledSearchTypes;
-          console.log('Active search types:', activeSearchTypes);
+          logger.log('Active search types:', activeSearchTypes);
           
           // Perform searches for all enabled types
           setIsSearching(true);
           const searchPromises = activeSearchTypes.map(async (searchType) => {
-            console.log(`Starting ${searchType} search...`);
+            logger.log(`Starting ${searchType} search...`);
             // SearchAPI only supports web search
             const serviceToUse = searchType === 'web' ? searchService : 'serpapi';
             
@@ -688,22 +689,22 @@ export default function Index() {
               });
 
               if (searchError) {
-                console.error(`${searchType} search error:`, searchError);
+                logger.error(`${searchType} search error:`, searchError);
                 return null;
               }
               
-              console.log(`${searchType} search completed successfully`);
+              logger.log(`${searchType} search completed successfully`);
               return { type: searchType, data: searchData };
             } catch (err) {
-              console.error(`${searchType} search exception:`, err);
+              logger.error(`${searchType} search exception:`, err);
               return null;
             }
           });
 
-          console.log('Waiting for all searches to complete...');
+          logger.log('Waiting for all searches to complete...');
           const searchResults = await Promise.all(searchPromises);
           const validResults = searchResults.filter(r => r !== null);
-          console.log(`Search results: ${validResults.length} valid results`);
+          logger.log(`Search results: ${validResults.length} valid results`);
 
           if (validResults.length === 0) {
             toast({
@@ -716,7 +717,7 @@ export default function Index() {
 
           // Format all search results
           let formattedResults = '';
-          console.log('Formatting search results...');
+          logger.log('Formatting search results...');
           
           for (const result of validResults) {
             if (!result) continue;
@@ -744,8 +745,8 @@ export default function Index() {
             }
           }
 
-          console.log('Formatted results length:', formattedResults.length);
-          console.log('Sending search results back to AI...');
+          logger.log('Formatted results length:', formattedResults.length);
+          logger.log('Sending search results back to AI...');
 
           // Send search results back to AI using proper tool calling format
           let currentMessages = [
@@ -766,16 +767,16 @@ export default function Index() {
             }
           ];
 
-          console.log('Current messages count:', currentMessages.length);
+          logger.log('Current messages count:', currentMessages.length);
 
           // Handle potential follow-up tool calls (like sentiment detection)
           let finalData = null;
           let attempts = 0;
           const maxAttempts = 3; // Prevent infinite loops
 
-          console.log('Entering tool call handling loop...');
+          logger.log('Entering tool call handling loop...');
           while (attempts < maxAttempts) {
-            console.log(`Attempt ${attempts + 1}/${maxAttempts}`);
+            logger.log(`Attempt ${attempts + 1}/${maxAttempts}`);
             
             const { data: responseData, error: responseError } = await supabase.functions.invoke('chat-completion', {
               body: {
@@ -788,11 +789,11 @@ export default function Index() {
             });
 
             if (responseError) {
-              console.error('Error in follow-up chat-completion:', responseError);
+              logger.error('Error in follow-up chat-completion:', responseError);
               throw responseError;
             }
 
-            console.log('Response received:', {
+            logger.log('Response received:', {
               requires_tool: responseData.requires_tool,
               tool_name: responseData.tool_name,
               has_content: !!responseData.choices[0]?.message?.content
@@ -800,7 +801,7 @@ export default function Index() {
 
             // Check if AI wants to make another tool call
             if (responseData.requires_tool && responseData.tool_name === 'detect_sentiment') {
-              console.log('AI requesting sentiment detection after search');
+              logger.log('AI requesting sentiment detection after search');
 
               // Persist sentiment for UI coloring + indicator
               if (responseData.tool_arguments) {
@@ -815,7 +816,7 @@ export default function Index() {
 
               const sentimentToolCallId = responseData.choices[0]?.message?.tool_calls?.[0]?.id;
               if (!sentimentToolCallId) {
-                console.error('No sentiment tool_call_id found');
+                logger.error('No sentiment tool_call_id found');
                 break;
               }
 
@@ -841,21 +842,21 @@ export default function Index() {
             }
 
             // We got a final response
-            console.log('Got final response from AI');
+            logger.log('Got final response from AI');
             finalData = responseData;
             break;
           }
 
           if (!finalData) {
-            console.error('Failed to get final response after max attempts');
+            logger.error('Failed to get final response after max attempts');
             throw new Error('Failed to get final response after tool calls');
           }
 
           const finalMessage = finalData.choices[0]?.message?.content;
-          console.log('Final message length:', finalMessage?.length || 0);
+          logger.log('Final message length:', finalMessage?.length || 0);
           
           if (finalMessage) {
-            console.log('Adding final message to chat');
+            logger.log('Adding final message to chat');
             setIsSearching(false);
             setChatMessages(prev => [...prev, {
               role: 'assistant',
@@ -909,12 +910,12 @@ export default function Index() {
         
         // Check if AI is requesting sentiment detection
         if (data.requires_tool && data.tool_name === 'detect_sentiment' && data.tool_arguments) {
-          console.log('AI detected sentiment:', data.tool_arguments);
+          logger.log('AI detected sentiment:', data.tool_arguments);
           
           // Get the tool call ID from the response
           const toolCallId = data.choices[0]?.message?.tool_calls?.[0]?.id;
           if (!toolCallId) {
-            console.error('No tool_call_id found in response');
+            logger.error('No tool_call_id found in response');
             toast({
               title: 'Error',
               description: 'Invalid tool call response',
@@ -1007,12 +1008,12 @@ export default function Index() {
         
         // Check if AI is requesting knowledge base search
         if (data.requires_tool && data.tool_name === 'search_knowledge_base' && data.tool_arguments) {
-          console.log('AI requested knowledge base search:', data.tool_arguments);
+          logger.log('AI requested knowledge base search:', data.tool_arguments);
           
           // Get the tool call ID from the response
           const toolCallId = data.choices[0]?.message?.tool_calls?.[0]?.id;
           if (!toolCallId) {
-            console.error('No tool_call_id found in response');
+            logger.error('No tool_call_id found in response');
             toast({
               title: 'Error',
               description: 'Invalid tool call response',
@@ -1041,7 +1042,7 @@ export default function Index() {
           });
 
           if (kbSearchError) {
-            console.error('Knowledge base search error:', kbSearchError);
+            logger.error('Knowledge base search error:', kbSearchError);
             toast({
               title: 'Search Failed',
               description: 'Failed to search knowledge base',
@@ -1189,7 +1190,7 @@ export default function Index() {
           }
         }
       } catch (error) {
-        console.error('Error sending chat message:', error);
+        logger.error('Error sending chat message:', error);
         setIsSearching(false);
         toast({
           title: 'Send Failed',

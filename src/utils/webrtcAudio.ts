@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 export interface SessionStats {
   audioInputTokens: number;
   textInputTokens: number;
@@ -89,13 +91,13 @@ export async function createRealtimeSession(
 
   // Connection state logging (helps debug "no audio" situations)
   pc.onconnectionstatechange = () => {
-    console.log('🔗 pc.connectionState:', pc.connectionState);
+    logger.log('🔗 pc.connectionState:', pc.connectionState);
   };
   pc.oniceconnectionstatechange = () => {
-    console.log('🧊 pc.iceConnectionState:', pc.iceConnectionState);
+    logger.log('🧊 pc.iceConnectionState:', pc.iceConnectionState);
   };
   pc.onsignalingstatechange = () => {
-    console.log('📡 pc.signalingState:', pc.signalingState);
+    logger.log('📡 pc.signalingState:', pc.signalingState);
   };
 
   // Audio validation state
@@ -123,25 +125,25 @@ export async function createRealtimeSession(
       // Create new source from stored stream
       sourceNode = audioContext.createMediaStreamSource(audioStream);
       sourceNode.connect(delayNode);
-      console.log('🔄 Audio source reconnected');
+      logger.log('🔄 Audio source reconnected');
     } catch (e) {
-      console.error('Failed to reconnect audio source:', e);
+      logger.error('Failed to reconnect audio source:', e);
     }
   };
 
   // Function to handle validation failure - injects trigger to model
   const handleValidationFailure = (reason: string) => {
-    console.log('🚨 Validation failed - triggering model rephrase...');
+    logger.log('🚨 Validation failed - triggering model rephrase...');
     
     // 1. Immediately mute buffered audio (don't disconnect, just mute!)
     if (gainNode && audioContext) {
       gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      console.log('🔇 Audio muted due to validation failure');
+      logger.log('🔇 Audio muted due to validation failure');
     }
     
     // 2. Cancel any ongoing response first
     if (dataChannelRef && dataChannelRef.readyState === 'open') {
-      console.log('🛑 Cancelling current response...');
+      logger.log('🛑 Cancelling current response...');
       dataChannelRef.send(JSON.stringify({ type: 'response.cancel' }));
     }
     
@@ -162,14 +164,14 @@ export async function createRealtimeSession(
           }
         };
         
-        console.log('📤 Sending validation trigger to model...');
+        logger.log('📤 Sending validation trigger to model...');
         dataChannelRef.send(JSON.stringify(triggerMessage));
         
         // 4. Request new response from model
         setTimeout(() => {
           if (dataChannelRef && dataChannelRef.readyState === 'open') {
             dataChannelRef.send(JSON.stringify({ type: 'response.create' }));
-            console.log('📤 Requested new response from model');
+            logger.log('📤 Requested new response from model');
           }
         }, 100);
       }
@@ -185,7 +187,7 @@ export async function createRealtimeSession(
   // Function to validate transcript
   const validateTranscript = async (transcript: string): Promise<{ valid: boolean; reason: string }> => {
     if (!validationConfig?.enabled || !transcript.trim()) return { valid: true, reason: '' };
-    console.log('🔍 Validating transcript:', transcript.substring(0, 100) + '...');
+    logger.log('🔍 Validating transcript:', transcript.substring(0, 100) + '...');
     try {
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-transcript`, {
         method: 'POST',
@@ -195,8 +197,13 @@ export async function createRealtimeSession(
         },
         body: JSON.stringify({ transcript, validationRules: validationConfig.rules })
       });
+
+      if (!response.ok) {
+        throw new Error(`Validation request failed: ${response.status} ${response.statusText}`);
+      }
+
       const result = await response.json();
-      console.log('✅ Validation result:', result);
+      logger.log('✅ Validation result:', result);
       onMessage({
         type: 'validation.result',
         valid: result.valid,
@@ -206,7 +213,7 @@ export async function createRealtimeSession(
       });
       return { valid: result.valid, reason: result.reason || 'Validation failed' };
     } catch (error) {
-      console.error('Validation error:', error);
+      logger.error('Validation error:', error);
       return { valid: true, reason: '' }; // Fail open
     }
   };
@@ -223,7 +230,7 @@ export async function createRealtimeSession(
     gainNode.gain.value = 1.0;
     delayNode.connect(gainNode);
     gainNode.connect(audioContext.destination);
-    console.log(`🔊 Audio delay set to ${validationConfig?.enabled ? validationDelayMs : 0}ms for validation`);
+    logger.log(`🔊 Audio delay set to ${validationConfig?.enabled ? validationDelayMs : 0}ms for validation`);
 
     // "Unlock" audio playback as early as possible (while we're still in the user gesture)
     audioElement = new Audio();
@@ -254,7 +261,7 @@ export async function createRealtimeSession(
     });
 
     pc.ontrack = (e) => {
-      console.log('🔊 Audio track received from OpenAI', {
+      logger.log('🔊 Audio track received from OpenAI', {
         streams: e.streams?.length ?? 0,
         trackKind: e.track?.kind,
         trackId: e.track?.id,
@@ -274,7 +281,7 @@ export async function createRealtimeSession(
         
         sourceNode = audioContext.createMediaStreamSource(stream);
         sourceNode.connect(delayNode);
-        console.log('✅ Audio routed through delay node for validation');
+        logger.log('✅ Audio routed through delay node for validation');
       }
 
       // Keep muted reference on audio element for browser compatibility
@@ -298,7 +305,7 @@ export async function createRealtimeSession(
       }
 
       audioElement.play().catch((error) => {
-        console.error('❌ Audio element play failed:', error);
+        logger.error('❌ Audio element play failed:', error);
       });
     };
   }
@@ -310,13 +317,13 @@ export async function createRealtimeSession(
   dataChannelRef = dc; // Store reference for validation trigger
 
   dc.addEventListener('open', () => {
-    console.log('✅ DataChannel open:', dc.label);
+    logger.log('✅ DataChannel open:', dc.label);
   });
   dc.addEventListener('close', () => {
-    console.log('🛑 DataChannel closed:', dc.label);
+    logger.log('🛑 DataChannel closed:', dc.label);
   });
   dc.addEventListener('error', (err) => {
-    console.error('❌ DataChannel error:', err);
+    logger.error('❌ DataChannel error:', err);
   });
 
   let sessionCreated = false;
@@ -327,24 +334,24 @@ export async function createRealtimeSession(
       const eventData = JSON.parse(e.data);
       
       // Log ALL events to debug issues
-      console.log('🔔 EVENT:', eventData.type);
+      logger.log('🔔 EVENT:', eventData.type);
       
       // Log full details for critical events
       if (eventData.type?.includes('transcription') || 
           eventData.type?.includes('conversation.item') ||
           eventData.type === 'session.updated') {
-        console.log('📝 Full Event Data:', JSON.stringify(eventData, null, 2));
+        logger.log('📝 Full Event Data:', JSON.stringify(eventData, null, 2));
       }
       
       // Log response events for debugging
       if (eventData.type === 'response.created') {
-        console.log('🚀 Response started:', eventData.response?.id);
+        logger.log('🚀 Response started:', eventData.response?.id);
         // Reset transcript accumulator for new response
         currentTranscript = '';
         // Ensure audio is enabled and reconnected for new response
         if (gainNode && audioContext) {
           gainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
-          console.log('🔊 Audio gain restored to 1.0');
+          logger.log('🔊 Audio gain restored to 1.0');
         }
         // Reconnect audio source in case it was disconnected
         reconnectAudioSource();
@@ -353,19 +360,19 @@ export async function createRealtimeSession(
       // Accumulate transcript for validation
       if (eventData.type === 'response.audio_transcript.delta') {
         currentTranscript += eventData.delta || '';
-        console.log('📝 Transcript accumulating:', currentTranscript.length, 'chars');
+        logger.log('📝 Transcript accumulating:', currentTranscript.length, 'chars');
       }
       
       if (eventData.type === 'response.audio.delta') {
-        console.log('🔊 Audio delta received, length:', eventData.delta?.length || 0);
+        logger.log('🔊 Audio delta received, length:', eventData.delta?.length || 0);
       }
       if (eventData.type === 'response.audio.done') {
-        console.log('✅ Audio response complete');
+        logger.log('✅ Audio response complete');
       }
       
       // Validate transcript when response is done
       if (eventData.type === 'response.done') {
-        console.log('📨 Response done:', {
+        logger.log('📨 Response done:', {
           status: eventData.response?.status,
           reason: eventData.response?.status_details?.reason,
           outputTokens: eventData.response?.usage?.output_tokens
@@ -373,20 +380,20 @@ export async function createRealtimeSession(
         
         // Trigger validation if enabled and we have transcript
         if (validationConfig?.enabled && currentTranscript.trim()) {
-          console.log('🔍 Triggering transcript validation...');
+          logger.log('🔍 Triggering transcript validation...');
           validateTranscript(currentTranscript).then(result => {
             if (!result.valid) {
-              console.log('❌ Validation failed - triggering model rephrase');
+              logger.log('❌ Validation failed - triggering model rephrase');
               handleValidationFailure(result.reason);
             } else {
-              console.log('✅ Validation passed - audio continues');
+              logger.log('✅ Validation passed - audio continues');
               // Re-enable audio gain if it was muted
               if (gainNode && audioContext) {
                 gainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
               }
             }
           }).catch(error => {
-            console.error('❌ Unexpected error during transcript validation:', error);
+            logger.error('❌ Unexpected error during transcript validation:', error);
             // Continue audio playback on error (fail open)
             if (gainNode && audioContext) {
               gainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
@@ -400,8 +407,8 @@ export async function createRealtimeSession(
       
       // Confirm session was updated by OpenAI
       if (eventData.type === 'session.updated') {
-        console.log('✅ OpenAI confirmed session update');
-        console.log('Session config:', {
+        logger.log('✅ OpenAI confirmed session update');
+        logger.log('Session config:', {
           modalities: eventData.session?.modalities,
           voice: eventData.session?.voice,
           input_audio_transcription: eventData.session?.input_audio_transcription,
@@ -411,12 +418,12 @@ export async function createRealtimeSession(
         // If AI speaks first, trigger initial greeting ONCE after session is configured
         if (firstSpeakerConfig.speaker === 'ai' && !textOnly && !aiGreetingSent) {
           aiGreetingSent = true; // Prevent duplicate greetings
-          console.log('🎤 AI speaks first - triggering initial greeting (one-time)...');
+          logger.log('🎤 AI speaks first - triggering initial greeting (one-time)...');
           
           // Immediately request a response - the greeting is already in the instructions
           if (dc.readyState === 'open') {
             dc.send(JSON.stringify({ type: 'response.create' }));
-            console.log('📤 Sent response.create for AI greeting');
+            logger.log('📤 Sent response.create for AI greeting');
           }
         }
       }
@@ -424,7 +431,7 @@ export async function createRealtimeSession(
       // Send session.update with instructions after receiving session.created
       if (eventData.type === 'session.created' && !sessionCreated) {
         sessionCreated = true;
-        console.log('✅ Session created, sending configuration update...');
+        logger.log('✅ Session created, sending configuration update...');
 
         const defaultTurnDetection = textOnly
           ? null
@@ -475,7 +482,7 @@ export async function createRealtimeSession(
 IMPORTANT: You MUST start this conversation immediately with this greeting: "${firstSpeakerConfig.aiGreetingMessage}"
 Do not wait for the user to speak first. Begin the conversation with this greeting.`;
           finalInstructions = finalInstructions + greetingAddendum;
-          console.log('👋 AI greeting instruction added to instructions');
+          logger.log('👋 AI greeting instruction added to instructions');
         }
         
         if (validationConfig?.enabled) {
@@ -490,7 +497,7 @@ Your responses are being validated externally against compliance rules. If you e
 
 Remember: The validation system is protecting the user and the business. Take it seriously.`;
           finalInstructions = finalInstructions + validationAddendum;
-          console.log('🛡️ Validation awareness added to instructions');
+          logger.log('🛡️ Validation awareness added to instructions');
         }
 
         const sessionUpdate: any = {
@@ -506,16 +513,16 @@ Remember: The validation system is protecting the user and the business. Take it
           },
         };
 
-        console.log('🎛️ session.update (client) ->', {
+        logger.log('🎛️ session.update (client) ->', {
           modalities: normalizedModalities,
           turn_detection: normalizedTurnDetection,
         });
 
         if (!textOnly) {
           sessionUpdate.session.input_audio_transcription = { model: 'whisper-1' };
-          console.log('✅ Input audio transcription ENABLED (Whisper-1)');
+          logger.log('✅ Input audio transcription ENABLED (Whisper-1)');
         } else {
-          console.log('⚠️ Input audio transcription DISABLED (text-only mode)');
+          logger.log('⚠️ Input audio transcription DISABLED (text-only mode)');
         }
 
         sessionUpdate.session.tools = [];
@@ -558,9 +565,9 @@ Remember: The validation system is protecting the user and the business. Take it
         
         sessionUpdate.session.tool_choice = 'auto';
         
-        console.log('📤 Sending session update:', JSON.stringify(sessionUpdate, null, 2));
+        logger.log('📤 Sending session update:', JSON.stringify(sessionUpdate, null, 2));
         dc.send(JSON.stringify(sessionUpdate));
-        console.log('Session updated with voice:', voice, 'and instructions:', instructions, 'KB:', knowledgeBaseId);
+        logger.log('Session updated with voice:', voice, 'and instructions:', instructions, 'KB:', knowledgeBaseId);
       }
       
       // Handle function calls from the AI
@@ -570,8 +577,8 @@ Remember: The validation system is protecting the user and the business. Take it
         const args = JSON.parse(eventData.arguments);
 
         if (functionName === 'web_search') {
-          console.log('AI requesting web search:', args.query);
-          console.log('Using Supabase token:', supabaseToken ? 'Token present' : 'NO TOKEN');
+          logger.log('AI requesting web search:', args.query);
+          logger.log('Using Supabase token:', supabaseToken ? 'Token present' : 'NO TOKEN');
 
           onMessage({
             type: 'web_search.request',
@@ -581,7 +588,7 @@ Remember: The validation system is protecting the user and the business. Take it
           });
 
           if (!supabaseToken) {
-            console.error('Missing Supabase token for web search');
+            logger.error('Missing Supabase token for web search');
             const functionOutput = {
               type: 'conversation.item.create',
               item: {
@@ -605,9 +612,14 @@ Remember: The validation system is protecting the user and the business. Take it
               query: args.query
             })
           })
-            .then(res => res.json())
+            .then(res => {
+              if (!res.ok) {
+                throw new Error(`Web search request failed: ${res.status} ${res.statusText}`);
+              }
+              return res.json();
+            })
             .then(data => {
-              console.log('Web search results:', data.results);
+              logger.log('Web search results:', data.results);
 
               onMessage({
                 type: 'web_search.results',
@@ -634,11 +646,11 @@ Remember: The validation system is protecting the user and the business. Take it
               };
 
               dc.send(JSON.stringify(functionOutput));
-              console.log('📢 Triggering response.create after web search results');
+              logger.log('📢 Triggering response.create after web search results');
               dc.send(JSON.stringify({ type: 'response.create' }));
             })
             .catch(err => {
-              console.error('Error performing web search:', err);
+              logger.error('Error performing web search:', err);
 
               const functionOutput = {
                 type: 'conversation.item.create',
@@ -653,7 +665,7 @@ Remember: The validation system is protecting the user and the business. Take it
               dc.send(JSON.stringify({ type: 'response.create' }));
             });
         } else if (functionName === 'search_knowledge_base' && knowledgeBaseId) {
-          console.log('AI requesting knowledge base search:', args.query);
+          logger.log('AI requesting knowledge base search:', args.query);
 
           fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-knowledge`, {
             method: 'POST',
@@ -666,9 +678,14 @@ Remember: The validation system is protecting the user and the business. Take it
               knowledge_base_id: knowledgeBaseId
             })
           })
-            .then(res => res.json())
+            .then(res => {
+              if (!res.ok) {
+                throw new Error(`Knowledge base search failed: ${res.status} ${res.statusText}`);
+              }
+              return res.json();
+            })
             .then(data => {
-              console.log('Knowledge base search results:', data.results);
+              logger.log('Knowledge base search results:', data.results);
 
               onMessage({
                 type: 'knowledge_base.search_results',
@@ -688,11 +705,11 @@ Remember: The validation system is protecting the user and the business. Take it
               };
 
               dc.send(JSON.stringify(functionOutput));
-              console.log('📢 Triggering response.create after knowledge base search results');
+              logger.log('📢 Triggering response.create after knowledge base search results');
               dc.send(JSON.stringify({ type: 'response.create' }));
             })
             .catch(err => {
-              console.error('Error searching knowledge base:', err);
+              logger.error('Error searching knowledge base:', err);
 
               const functionOutput = {
                 type: 'conversation.item.create',
@@ -716,7 +733,7 @@ Remember: The validation system is protecting the user and the business. Take it
         const itemId = eventData.item_id;
         
         if (transcript && transcript.trim().length > 0) {
-          console.log('🎯 Triggering structural sentiment analysis for item:', itemId);
+          logger.log('🎯 Triggering structural sentiment analysis for item:', itemId);
           
           fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-sentiment`, {
             method: 'POST',
@@ -729,9 +746,14 @@ Remember: The validation system is protecting the user and the business. Take it
               item_id: itemId
             })
           })
-            .then(res => res.json())
+            .then(res => {
+              if (!res.ok) {
+                throw new Error(`Sentiment analysis failed: ${res.status} ${res.statusText}`);
+              }
+              return res.json();
+            })
             .then(data => {
-              console.log('✅ Sentiment analysis result:', data);
+              logger.log('✅ Sentiment analysis result:', data);
               
               onMessage({
                 type: 'sentiment.detected',
@@ -743,14 +765,14 @@ Remember: The validation system is protecting the user and the business. Take it
               });
             })
             .catch(err => {
-              console.error('Sentiment analysis failed:', err);
+              logger.error('Sentiment analysis failed:', err);
             });
         }
       }
 
       onMessage(eventData);
     } catch (err) {
-      console.error('Error parsing event data:', err);
+      logger.error('Error parsing event data:', err);
     }
   });
 

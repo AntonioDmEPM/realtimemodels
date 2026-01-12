@@ -1,4 +1,5 @@
 // Utility to adapt AI tone based on detected sentiment
+import { logger } from './logger';
 
 export function generateToneInstructions(
   baseTone: string,
@@ -53,7 +54,7 @@ export function updateSessionTone(
   adaptiveTone: boolean
 ) {
   if (!dataChannel || dataChannel.readyState !== 'open') {
-    console.log('Cannot update tone: data channel not ready');
+    logger.log('Cannot update tone: data channel not ready');
     return;
   }
 
@@ -71,5 +72,5 @@ export function updateSessionTone(
   };
 
   dataChannel.send(JSON.stringify(sessionUpdate));
-  console.log('Session tone updated for sentiment:', sentiment);
+  logger.log('Session tone updated for sentiment:', sentiment);
 }

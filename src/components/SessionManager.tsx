@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
+import { logger } from '@/utils/logger';
 import { Menu, FolderOpen, Trash2 } from 'lucide-react';
 import { SessionStats, PricingConfig } from '@/utils/webrtcAudio';
 import { TimelineSegment } from '@/components/ConversationTimeline';
@@ -60,7 +61,7 @@ export default function SessionManager({
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error loading sessions:', error);
+        logger.error('Error loading sessions:', error);
         toast({
           title: 'Error',
           description: 'Failed to load sessions',
@@ -71,7 +72,7 @@ export default function SessionManager({
 
       setSessions((data || []) as unknown as SavedSession[]);
     } catch (error) {
-      console.error('Unexpected error loading sessions:', error);
+      logger.error('Unexpected error loading sessions:', error);
       toast({
         title: 'Error',
         description: 'An unexpected error occurred while loading sessions',
@@ -89,7 +90,7 @@ export default function SessionManager({
         .eq('id', id);
 
       if (error) {
-        console.error('Error deleting session:', error);
+        logger.error('Error deleting session:', error);
         toast({
           title: 'Error',
           description: 'Failed to delete session',
@@ -105,7 +106,7 @@ export default function SessionManager({
 
       loadSessions();
     } catch (error) {
-      console.error('Unexpected error deleting session:', error);
+      logger.error('Unexpected error deleting session:', error);
       toast({
         title: 'Error',
         description: 'An unexpected error occurred while deleting the session',

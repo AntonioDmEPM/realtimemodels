@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { logger } from '@/utils/logger';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, Lock } from 'lucide-react';
 import zxcvbn from 'zxcvbn';
@@ -86,7 +87,7 @@ export default function Profile() {
       }
       setUserEmail(user.email || '');
     } catch (error) {
-      console.error('Error checking authentication:', error);
+      logger.error('Error checking authentication:', error);
       navigate('/auth');
     }
   };
