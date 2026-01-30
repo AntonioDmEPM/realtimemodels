@@ -1,10 +1,15 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation constants
+const MAX_PROMPT_LENGTH = 50000;
+const MAX_REQUEST_LENGTH = 1000;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,10 +17,58 @@ serve(async (req) => {
   }
 
   try {
+    // Authentication: Extract and validate user
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Missing or invalid authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const token = authHeader.replace('Bearer ', '');
+    
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Validate JWT and get user claims
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error('Auth error:', claimsError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = claimsData.claims.sub as string;
+    console.log('Authenticated user:', userId);
+
     const { currentPrompt, userRequest } = await req.json();
     
-    if (!currentPrompt) {
-      throw new Error("Current prompt is required");
+    // Input validation
+    if (!currentPrompt || typeof currentPrompt !== 'string') {
+      return new Response(
+        JSON.stringify({ error: "Current prompt is required and must be a string" }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (currentPrompt.length > MAX_PROMPT_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Prompt too long (max ${MAX_PROMPT_LENGTH} characters)` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (userRequest && typeof userRequest === 'string' && userRequest.length > MAX_REQUEST_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `User request too long (max ${MAX_REQUEST_LENGTH} characters)` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -23,7 +76,7 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    console.log('Analyzing prompt for improvements');
+    console.log('User:', userId, '| Analyzing prompt for improvements');
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -87,7 +140,7 @@ Return ONLY the improved prompt text, incorporating all enhancements. Do not inc
       throw new Error('No prompt generated');
     }
 
-    console.log('Prompt suggestion generated successfully');
+    console.log('Prompt suggestion generated successfully for user:', userId);
 
     return new Response(
       JSON.stringify({ prompt: suggestedPrompt }),
