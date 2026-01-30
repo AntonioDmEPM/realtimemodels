@@ -420,21 +420,37 @@ export type Database = {
         }
         Returns: boolean
       }
-      search_similar_chunks: {
-        Args: {
-          kb_id: string
-          match_count?: number
-          match_threshold?: number
-          p_user_id: string
-          query_embedding: string
-        }
-        Returns: {
-          content: string
-          id: string
-          metadata: Json
-          similarity: number
-        }[]
-      }
+      search_similar_chunks:
+        | {
+            Args: {
+              kb_id: string
+              match_count?: number
+              match_threshold?: number
+              p_user_id: string
+              query_embedding: string
+            }
+            Returns: {
+              content: string
+              id: string
+              metadata: Json
+              similarity: number
+            }[]
+          }
+        | {
+            Args: {
+              kb_id: string
+              match_count?: number
+              match_threshold?: number
+              p_user_id: string
+              query_embedding: string
+            }
+            Returns: {
+              content: string
+              id: string
+              metadata: Json
+              similarity: number
+            }[]
+          }
     }
     Enums: {
       app_role: "admin" | "user"
