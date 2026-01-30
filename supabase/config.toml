@@ -1,25 +1,25 @@
 project_id = "cqrzuisvazfqngvcwumf"
 
 [functions.get-realtime-token]
-verify_jwt = true
+verify_jwt = false
 
 [functions.chat-completion]
-verify_jwt = true
+verify_jwt = false
 
 [functions.upload-document]
-verify_jwt = true
+verify_jwt = false
 
 [functions.search-knowledge]
-verify_jwt = true
+verify_jwt = false
 
 [functions.web-search]
-verify_jwt = true
+verify_jwt = false
 
 [functions.analyze-sentiment]
-verify_jwt = true
+verify_jwt = false
 
 [functions.suggest-prompt]
-verify_jwt = true
+verify_jwt = false
 
 [functions.validate-transcript]
-verify_jwt = true
+verify_jwt = false

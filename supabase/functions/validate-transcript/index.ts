@@ -1,10 +1,15 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation constants
+const MAX_TRANSCRIPT_LENGTH = 50000;
+const MAX_RULES_LENGTH = 10000;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,12 +17,64 @@ serve(async (req) => {
   }
 
   try {
+    // Authentication: Extract and validate user
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Missing or invalid authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const token = authHeader.replace('Bearer ', '');
+    
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Validate JWT and get user claims
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error('Auth error:', claimsError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = claimsData.claims.sub as string;
+    console.log('Authenticated user:', userId);
+
     const { transcript, validationRules } = await req.json();
 
+    // Input validation
     if (!transcript) {
       return new Response(
         JSON.stringify({ valid: true, reason: 'Empty transcript - skipping validation' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (typeof transcript !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Transcript must be a string' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (transcript.length > MAX_TRANSCRIPT_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Transcript too long (max ${MAX_TRANSCRIPT_LENGTH} characters)` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (validationRules && typeof validationRules === 'string' && validationRules.length > MAX_RULES_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Validation rules too long (max ${MAX_RULES_LENGTH} characters)` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -30,6 +87,8 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('User:', userId, '| Validating transcript of length:', transcript.length);
 
     const systemPrompt = `You are a strict content compliance validator. Your job is to check if an AI assistant's response violates any of the given rules.
 
@@ -100,7 +159,7 @@ Return your decision:
     }
 
     const data = await response.json();
-    console.log('Validation response:', JSON.stringify(data, null, 2));
+    console.log('Validation response for user:', userId);
 
     // Extract tool call result
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
